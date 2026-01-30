@@ -64,9 +64,13 @@ def train_xgboost(df_input):
     df_train = df_train.dropna(subset=['Date'])
     df_train = df_train.sort_values('Date').tail(1000) # Increased history
     
-    def calc_form(team, date, lookback=5):
-        past = df_train[(df_train['Date'] < date) & ((df_train['HomeTeam'] == team) | (df_train['AwayTeam'] == team))].tail(lookback)
-        if len(past) == 0: return 0
+    def calc_form(team, date, col=None, lookback=5):
+        mask = (df_train['Date'] < date) & ((df_train['HomeTeam'] == team) | (df_train['AwayTeam'] == team))
+        if col: # Filter by Home or Away specifically
+            mask = (df_train['Date'] < date) & (df_train[col] == team)
+        
+        past = df_train[mask].tail(lookback)
+        if len(past) == 0: return 0.33
         pts = 0
         for _, r in past.iterrows():
             if r['HomeTeam'] == team:
@@ -77,8 +81,11 @@ def train_xgboost(df_input):
                 elif r['FTAG'] == r['FTAG']: pts += 1
         return pts / (len(past) * 3)
 
+    # Features: Overall Form + Venue Specific Form
     df_train['H_Form'] = df_train.apply(lambda x: calc_form(x['HomeTeam'], x['Date']), axis=1)
     df_train['A_Form'] = df_train.apply(lambda x: calc_form(x['AwayTeam'], x['Date']), axis=1)
+    df_train['H_Home_Form'] = df_train.apply(lambda x: calc_form(x['HomeTeam'], x['Date'], col='HomeTeam'), axis=1)
+    df_train['A_Away_Form'] = df_train.apply(lambda x: calc_form(x['AwayTeam'], x['Date'], col='AwayTeam'), axis=1)
 
     all_teams = sorted(list(set(df_input['HomeTeam'].unique()) | set(df_input['AwayTeam'].unique())))
     le = LabelEncoder().fit(all_teams)
@@ -88,9 +95,9 @@ def train_xgboost(df_input):
     conds = [(df_train['FTHG'] > df_train['FTAG']), (df_train['FTHG'] == df_train['FTAG']), (df_train['FTHG'] < df_train['FTAG'])]
     df_train['Result'] = np.select(conds, [2, 1, 0])
     
-    X = df_train[['HomeIdx', 'AwayIdx', 'H_Form', 'A_Form']]
+    X = df_train[['HomeIdx', 'AwayIdx', 'H_Form', 'A_Form', 'H_Home_Form', 'A_Away_Form']]
     y = df_train['Result']
-    model = XGBClassifier(use_label_encoder=False, eval_metric='mlogloss', n_estimators=50, max_depth=3)
+    model = XGBClassifier(use_label_encoder=False, eval_metric='mlogloss', n_estimators=70, max_depth=4)
     model.fit(X, y)
     return model, le
 
@@ -157,19 +164,25 @@ if st.sidebar.button("🚀 Calcular Predicción"):
         # Ensure matrix is valid
         pm_mat = np.nan_to_num(pm_mat)
         
-        # 2. IA (Enhanced with Stacking: Form + Poisson as features)
+        # 2. IA (Enhanced with Stacking: Form + Venue Specific Form)
         xgb, le = train_xgboost(df)
-        def get_f(t):
-            p = df[((df['HomeTeam']==t) | (df['AwayTeam']==t))].tail(5)
-            if len(p) == 0: return 0.33 # Default neutral form
+        def get_f(t, col=None):
+            mask = ((df['HomeTeam']==t) | (df['AwayTeam']==t))
+            if col: mask = (df[col]==t)
+            p = df[mask].tail(5)
+            if len(p) == 0: return 0.33 
             pts = sum([(3 if (r['HomeTeam']==t and r['FTHG']>r['FTAG']) or (r['AwayTeam']==t and r['FTAG']>r['FTHG']) else 1 if r['FTHG']==r['FTAG'] else 0) for i,r in p.iterrows()])
-            return pts/15
+            return pts/(len(p)*3)
         
-        h_form = get_f(h_t)
-        a_form = get_f(a_t)
+        h_f_global = get_f(h_t)
+        a_f_global = get_f(a_t)
+        h_f_venue = get_f(h_t, 'HomeTeam')
+        a_f_venue = get_f(a_t, 'AwayTeam')
         
-        # Predict using Form + Statistical Base
-        ia_features = pd.DataFrame([[le.transform([h_t])[0], le.transform([a_t])[0], h_form, a_form]], columns=['HomeIdx','AwayIdx','H_Form','A_Form'])
+        # Predict using all features
+        ia_features = pd.DataFrame([
+            [le.transform([h_t])[0], le.transform([a_t])[0], h_f_global, a_f_global, h_f_venue, a_f_venue]
+        ], columns=['HomeIdx','AwayIdx','H_Form','A_Form','H_Home_Form','A_Away_Form'])
         ia_p = xgb.predict_proba(ia_features)[0]
         
         # 3. Bayes (Simple)
@@ -179,7 +192,7 @@ if st.sidebar.button("🚀 Calcular Predicción"):
         st.session_state['results'] = {
             'p': (p_home, p_draw, p_away, pou, pm_mat),
             'ia': ia_p,
-            'ia_inputs': (h_form, a_form),
+            'ia_inputs': (h_f_global, a_f_global, h_f_venue, a_f_venue),
             'b': b_res,
             'teams': (h_t, a_t)
         }
@@ -271,13 +284,17 @@ if st.session_state['results']:
 
     with main_tabs[3]:
         st.subheader("🔬 Desglose de Modelos")
-        h_form, a_form = res.get('ia_inputs', (0,0))
+        h_f_g, a_f_g, h_f_v, a_f_v = res.get('ia_inputs', (0,0,0,0))
         
-        st.markdown(f"""
-        **Análisis de Forma (Últimos 5 partidos):**
-        - {h_t}: **{h_form*100:.1f}%** de puntos posibles.
-        - {a_t}: **{a_form*100:.1f}%** de puntos posibles.
-        """)
+        c_f1, c_f2 = st.columns(2)
+        with c_f1:
+            st.markdown(f"**{h_t} (Personalizado)**")
+            st.write(f"Forma Global (L5): **{h_f_g*100:.1f}%**")
+            st.write(f"Forma Local (L5 Casa): **{h_f_v*100:.1f}%**")
+        with c_f2:
+            st.markdown(f"**{a_t} (Personalizado)**")
+            st.write(f"Forma Global (L5): **{a_f_g*100:.1f}%**")
+            st.write(f"Forma Visita (L5 Fuera): **{a_f_v*100:.1f}%**")
         
         st.divider()
         d_c1, d_c2, d_c3 = st.columns(3)

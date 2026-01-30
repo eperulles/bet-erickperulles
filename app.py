@@ -8,6 +8,7 @@ from sklearn.preprocessing import LabelEncoder
 import pymc as pm
 import arviz as az
 import time
+import plotly.express as pex
 
 # --- APP CONFIG ---
 st.set_page_config(page_title="Football AI Pro", layout="wide")
@@ -47,13 +48,13 @@ def get_poisson_market(home_exp, away_exp, max_goals=10):
     a_probs = [poisson.pmf(i, away_exp) for i in range(max_goals + 1)]
     m = np.outer(h_probs, a_probs)
     h_win = np.sum(np.tril(m, -1))
-    draw = np.sum(np.diag(m))
+    p_draw = np.sum(np.diag(m))
     a_win = np.sum(np.triu(m, 1))
     ou_results = {}
     for threshold in [0.5, 1.5, 2.5, 3.5, 4.5]:
         under_prob = sum(m[i, j] for i in range(max_goals+1) for j in range(max_goals+1) if i+j < threshold)
         ou_results[threshold] = {"Over": 1 - under_prob, "Under": under_prob}
-    return h_win, draw, a_win, ou_results, m
+    return h_win, p_draw, a_win, ou_results, m
 
 @st.cache_data
 def train_xgboost(df_input):
@@ -150,7 +151,7 @@ if st.sidebar.button("🚀 Calcular Predicción"):
         h_exp = np.clip(ha * ad * avg_h, 0.01, 10.0)
         a_exp = np.clip(aa * hd * avg_a, 0.01, 10.0)
         
-        p1, px, p2, pou, pm_mat = get_poisson_market(h_exp, a_exp)
+        p_home, p_draw, p_away, pou, pm_mat = get_poisson_market(h_exp, a_exp)
         # Ensure matrix is valid
         pm_mat = np.nan_to_num(pm_mat)
         
@@ -167,7 +168,7 @@ if st.sidebar.button("🚀 Calcular Predicción"):
         except: bayes_ok = False; b_res = None
         
         st.session_state['results'] = {
-            'p': (p1, px, p2, pou, pm_mat),
+            'p': (p_home, p_draw, p_away, pou, pm_mat),
             'ia': ia_p,
             'b': b_res,
             'teams': (h_t, a_t)
@@ -176,7 +177,7 @@ if st.sidebar.button("🚀 Calcular Predicción"):
 # --- DISPLAY TABS ---
 if st.session_state['results']:
     res = st.session_state['results']
-    p1, px, p2, pou, pm_mat = res['p']
+    p_home, p_draw, p_away, pou, pm_mat = res['p']
     ia_p = res['ia']
     b_res = res['b']
     h_t, a_t = res['teams']
@@ -186,9 +187,9 @@ if st.session_state['results']:
     with main_tabs[0]:
         st.subheader(f"📊 Consenso Estratégico: {h_t} vs {a_t}")
         w_p, w_b, w_i = 0.2, 0.4, 0.4
-        c1 = p1*w_p + (b_res[0] if b_res else p1)*w_b + ia_p[2]*w_i
-        cx = px*w_p + (b_res[1] if b_res else px)*w_b + ia_p[1]*w_i
-        c2 = p2*w_p + (b_res[2] if b_res else p2)*w_b + ia_p[0]*w_i
+        c1 = p_home*w_p + (b_res[0] if b_res else p_home)*w_b + ia_p[2]*w_i
+        cx = p_draw*w_p + (b_res[1] if b_res else p_draw)*w_b + ia_p[1]*w_i
+        c2 = p_away*w_p + (b_res[2] if b_res else p_away)*w_b + ia_p[0]*w_i
         
         cols = st.columns(3)
         cols[0].metric("Local (1)", f"{c1*100:.1f}%")
@@ -207,22 +208,14 @@ if st.session_state['results']:
         z_data = np.nan_to_num(pm_mat[:6, :6])
         
         if z_data.sum() > 0:
-            import plotly.express as px
-            
-            # Create a nice dataframe for the heatmap
-            df_heatmap = pd.DataFrame(
-                z_data, 
-                index=[f"Local {i}" for i in range(6)],
-                columns=[f"Vis. {i}" for i in range(6)]
-            )
-            
-            fig = px.imshow(
+            # fig = pex.imshow(...)
+            fig = pex.imshow(
                 z_data,
                 labels=dict(x="Goles Visitante", y="Goles Local", color="Probabilidad"),
                 x=[str(i) for i in range(6)],
                 y=[str(i) for i in range(6)],
-                color_continuous_scale='RdYlGn', # Red-Yellow-Green for better visibility
-                text_auto='.1%', # This shows percentages in the boxes automatically
+                color_continuous_scale='Greens', 
+                text_auto='.1%', 
                 aspect="equal"
             )
             
@@ -269,6 +262,6 @@ if st.session_state['results']:
     with main_tabs[3]:
         st.subheader("🔬 Desglose de Modelos")
         d_c1, d_c2, d_c3 = st.columns(3)
-        d_c1.write("**Poisson:**"); d_c1.write(f"1: {p1*100:.1f}% | X: {px*100:.1f}% | 2: {p2*100:.1f}%")
+        d_c1.write("**Poisson:**"); d_c1.write(f"1: {p_home*100:.1f}% | X: {p_draw*100:.1f}% | 2: {p_away*100:.1f}%")
         d_c2.write("**IA XGBoost:**"); d_c2.write(f"1: {ia_p[2]*100:.1f}% | X: {ia_p[1]*100:.1f}% | 2: {ia_p[0]*100:.1f}%")
         if b_res: d_c3.write("**Bayesiano:**"); d_c3.write(f"1: {b_res[0]*100:.1f}% | X: {b_res[1]*100:.1f}% | 2: {b_res[2]*100:.1f}%")

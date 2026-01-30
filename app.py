@@ -57,49 +57,58 @@ def get_poisson_market(home_exp, away_exp, max_goals=10):
     return h_win, p_draw, a_win, ou_results, m
 
 @st.cache_data
-def train_xgboost(df_input):
+def train_detailed_models(df_input):
     df_train = df_input.copy()
-    # Fix date parsing for European formats
     df_train['Date'] = pd.to_datetime(df_train['Date'], dayfirst=True, errors='coerce')
-    df_train = df_train.dropna(subset=['Date'])
-    df_train = df_train.sort_values('Date').tail(1000) # Increased history
+    df_train = df_train.dropna(subset=['Date']).sort_values('Date').tail(1500)
     
-    def calc_form(team, date, col=None, lookback=5):
+    def get_stats(team, date, col=None, lookback=5):
         mask = (df_train['Date'] < date) & ((df_train['HomeTeam'] == team) | (df_train['AwayTeam'] == team))
-        if col: # Filter by Home or Away specifically
-            mask = (df_train['Date'] < date) & (df_train[col] == team)
+        if col: mask &= (df_train[col] == team)
+        p = df_train[mask].tail(lookback)
+        if len(p) == 0: return 0, 0, 0
         
-        past = df_train[mask].tail(lookback)
-        if len(past) == 0: return 0.33
-        pts = 0
-        for _, r in past.iterrows():
-            if r['HomeTeam'] == team:
-                if r['FTHG'] > r['FTAG']: pts += 3
-                elif r['FTHG'] == r['FTAG']: pts += 1
-            else:
-                if r['FTAG'] > r['FTHG']: pts += 3
-                elif r['FTAG'] == r['FTAG']: pts += 1
-        return pts / (len(past) * 3)
+        pts = sum([(3 if (r['HomeTeam']==team and r['FTHG']>r['FTAG']) or (r['AwayTeam']==team and r['FTAG']>r['FTHG']) else 1 if r['FTHG']==r['FTAG'] else 0) for i,r in p.iterrows()])
+        sc = sum([(r['FTHG'] if r['HomeTeam']==team else r['FTAG']) for i,r in p.iterrows()])
+        co = sum([(r['FTAG'] if r['HomeTeam']==team else r['FTHG']) for i,r in p.iterrows()])
+        return pts/(len(p)*3), sc/len(p), co/len(p)
 
-    # Features: Overall Form + Venue Specific Form
-    df_train['H_Form'] = df_train.apply(lambda x: calc_form(x['HomeTeam'], x['Date']), axis=1)
-    df_train['A_Form'] = df_train.apply(lambda x: calc_form(x['AwayTeam'], x['Date']), axis=1)
-    df_train['H_Home_Form'] = df_train.apply(lambda x: calc_form(x['HomeTeam'], x['Date'], col='HomeTeam'), axis=1)
-    df_train['A_Away_Form'] = df_train.apply(lambda x: calc_form(x['AwayTeam'], x['Date'], col='AwayTeam'), axis=1)
-
+    # Engineering features
+    res = []
+    for _, x in df_train.iterrows():
+        h_f, h_s, h_c = get_stats(x['HomeTeam'], x['Date'])
+        a_f, a_s, a_c = get_stats(x['AwayTeam'], x['Date'])
+        hv_f, hv_s, hv_c = get_stats(x['HomeTeam'], x['Date'], col='HomeTeam')
+        av_f, av_s, av_c = get_stats(x['AwayTeam'], x['Date'], col='AwayTeam')
+        res.append([h_f, h_s, h_c, a_f, a_s, a_c, hv_f, hv_s, hv_c, av_f, av_s, av_c])
+    
+    f_cols = ['H_F','H_S','H_C','A_F','A_S','A_C','HV_F','HV_S','HV_C','AV_F','AV_S','AV_C']
+    X_feat = pd.DataFrame(res, columns=f_cols)
+    
     all_teams = sorted(list(set(df_input['HomeTeam'].unique()) | set(df_input['AwayTeam'].unique())))
     le = LabelEncoder().fit(all_teams)
-    df_train['HomeIdx'] = le.transform(df_train['HomeTeam'])
-    df_train['AwayIdx'] = le.transform(df_train['AwayTeam'])
+    X_feat['H_Idx'] = le.transform(df_train['HomeTeam'])
+    X_feat['A_Idx'] = le.transform(df_train['AwayTeam'])
     
-    conds = [(df_train['FTHG'] > df_train['FTAG']), (df_train['FTHG'] == df_train['FTAG']), (df_train['FTHG'] < df_train['FTAG'])]
-    df_train['Result'] = np.select(conds, [2, 1, 0])
+    # Targets
+    y_1x2 = np.select([(df_train['FTHG'] > df_train['FTAG']), (df_train['FTHG'] == df_train['FTAG'])], [2, 1], 0)
+    m_1x2 = XGBClassifier(n_estimators=100, max_depth=4).fit(X_feat, y_1x2)
     
-    X = df_train[['HomeIdx', 'AwayIdx', 'H_Form', 'A_Form', 'H_Home_Form', 'A_Away_Form']]
-    y = df_train['Result']
-    model = XGBClassifier(use_label_encoder=False, eval_metric='mlogloss', n_estimators=70, max_depth=4)
-    model.fit(X, y)
-    return model, le, df_train
+    # Goal Models FT (0.5 to 3.5)
+    ft_models = {}
+    for th in [0.5, 1.5, 2.5, 3.5]:
+        y_o = (df_train['FTHG'] + df_train['FTAG'] > th).astype(int)
+        ft_models[th] = XGBClassifier(n_estimators=80, max_depth=3).fit(X_feat, y_o)
+        
+    # Goal Models HT (0.5 to 1.5)
+    ht_models = {}
+    for th in [0.5, 1.5]:
+        y_o = (df_train['HTHG'] + df_train['HTAG'] > th).astype(int)
+        ht_models[th] = XGBClassifier(n_estimators=80, max_depth=3).fit(X_feat, y_o)
+    
+    # Keep processed data for pattern matching
+    df_train[f_cols] = X_feat[f_cols].values
+    return (m_1x2, ft_models, ht_models), le, df_train
 
 def run_bayesian_simple(df, h_t, a_t):
     subset = df[(df['HomeTeam'].isin([h_t, a_t])) | (df['AwayTeam'].isin([h_t, a_t]))].tail(20)
@@ -131,120 +140,142 @@ a_t = st.sidebar.selectbox("✈️ Equipo Visitante", teams, index=1)
 
 if st.sidebar.button("🚀 Calcular Predicción"):
     with st.spinner('Analizando datos...'):
-        # 1. Poisson
-        # Global Averages with fallback
+        # 1. Poisson FT
+        # Global Averages with fallback (Full Time)
         avg_h = df['FTHG'].mean()
         avg_a = df['FTAG'].mean()
         if np.isnan(avg_h) or avg_h <= 0: avg_h = 1.35
         if np.isnan(avg_a) or avg_a <= 0: avg_a = 1.15
         
-        # Robust metric calculation with NaN handling
-        def get_team_metric(team, col):
-            rows = df[df[col]==team]
-            if len(rows) == 0: return avg_h if col=='HomeTeam' else avg_a
-            val = rows['FTHG' if col=='HomeTeam' else 'FTAG'].mean()
-            return val if not np.isnan(val) else (avg_h if col=='HomeTeam' else avg_a)
-
-        def get_team_def(team, col):
-            rows = df[df[col]==team]
-            if len(rows) == 0: return avg_a if col=='HomeTeam' else avg_h
-            val = rows['FTAG' if col=='HomeTeam' else 'FTHG'].mean()
-            return val if not np.isnan(val) else (avg_a if col=='HomeTeam' else avg_h)
-
-        ha = get_team_metric(h_t, 'HomeTeam') / avg_h
-        hd = get_team_def(h_t, 'HomeTeam') / avg_a
-        aa = get_team_metric(a_t, 'AwayTeam') / avg_a
-        ad = get_team_def(a_t, 'AwayTeam') / avg_h
+        # Global Averages with fallback (Half Time)
+        ht_avg_h = df['HTHG'].mean()
+        ht_avg_a = df['HTAG'].mean()
+        if np.isnan(ht_avg_h) or ht_avg_h <= 0: ht_avg_h = 0.65
+        if np.isnan(ht_avg_a) or ht_avg_a <= 0: ht_avg_a = 0.50
         
-        # Safety checks for division by zero or extreme values
+        # Robust metric calculation
+        def get_team_stats(team, col, goal_col):
+            rows = df[df[col]==team]
+            if len(rows) == 0: return df[goal_col].mean()
+            val = rows[goal_col].mean()
+            return val if not np.isnan(val) else df[goal_col].mean()
+
+        # FT Expectancies
+        ha = get_team_stats(h_t, 'HomeTeam', 'FTHG') / avg_h
+        hd = get_team_stats(h_t, 'HomeTeam', 'FTAG') / avg_a
+        aa = get_team_stats(a_t, 'AwayTeam', 'FTAG') / avg_a
+        ad = get_team_stats(a_t, 'AwayTeam', 'FTHG') / avg_h
+        
         h_exp = np.clip(ha * ad * avg_h, 0.01, 10.0)
         a_exp = np.clip(aa * hd * avg_a, 0.01, 10.0)
-        
         p_home, p_draw, p_away, pou, pm_mat = get_poisson_market(h_exp, a_exp)
-        # Ensure matrix is valid
+        
+        # HT Expectancies (Using REAL HTHG/HTAG data)
+        ht_ha = get_team_stats(h_t, 'HomeTeam', 'HTHG') / ht_avg_h
+        ht_hd = get_team_stats(h_t, 'HomeTeam', 'HTAG') / ht_avg_a
+        ht_aa = get_team_stats(a_t, 'AwayTeam', 'HTAG') / ht_avg_a
+        ht_ad = get_team_stats(a_t, 'AwayTeam', 'HTHG') / ht_avg_h
+        
+        ht_h_exp = np.clip(ht_ha * ht_ad * ht_avg_h, 0.01, 5.0)
+        ht_a_exp = np.clip(ht_aa * ht_hd * ht_avg_a, 0.01, 5.0)
+        
+        ht_p_home, ht_p_draw, ht_p_away, ht_pou, ht_pm_mat = get_poisson_market(ht_h_exp, ht_a_exp)
+        
+        # Ensure matrices are valid
         pm_mat = np.nan_to_num(pm_mat)
+        ht_pm_mat = np.nan_to_num(ht_pm_mat)
         
-        # 2. IA (Enhanced with Stacking: Form + Venue Specific Form)
-        xgb, le, df_feat = train_xgboost(df)
-        def get_f(t, col=None):
-            mask = ((df['HomeTeam']==t) | (df['AwayTeam']==t))
-            if col: mask = (df[col]==t)
+        # 2. IA Engine Update
+        (m_1x2, ft_mods, ht_mods), le, df_feat = train_detailed_models(df)
+        
+        def get_live_stats(team, col=None):
+            mask = ((df['HomeTeam']==team) | (df['AwayTeam']==team))
+            if col: mask = (df[col]==team)
             p = df[mask].tail(5)
-            if len(p) == 0: return 0.33 
-            pts = sum([(3 if (r['HomeTeam']==t and r['FTHG']>r['FTAG']) or (r['AwayTeam']==t and r['FTAG']>r['FTHG']) else 1 if r['FTHG']==r['FTAG'] else 0) for i,r in p.iterrows()])
-            return pts/(len(p)*3)
+            if len(p) == 0: return 0.33, 1.0, 1.0
+            pts = sum([(3 if (r['HomeTeam']==team and r['FTHG']>r['FTAG']) or (r['AwayTeam']==team and r['FTAG']>r['FTHG']) else 1 if r['FTHG']==r['FTAG'] else 0) for i,r in p.iterrows()])
+            sc = sum([(r['FTHG'] if r['HomeTeam']==team else r['FTAG']) for i,r in p.iterrows()])
+            co = sum([(r['FTAG'] if r['HomeTeam']==team else r['FTHG']) for i,r in p.iterrows()])
+            return pts/(len(p)*3), sc/len(p), co/len(p)
+
+        h_f, h_s, h_c = get_live_stats(h_t)
+        a_f, a_s, a_c = get_live_stats(a_t)
+        hv_f, hv_s, hv_c = get_live_stats(h_t, 'HomeTeam')
+        av_f, av_s, av_c = get_live_stats(a_t, 'AwayTeam')
         
-        h_f_g = get_f(h_t)
-        a_f_g = get_f(a_t)
-        h_f_v = get_f(h_t, 'HomeTeam')
-        a_f_v = get_f(a_t, 'AwayTeam')
+        cur_feat = pd.DataFrame([[h_f, h_s, h_c, a_f, a_s, a_c, hv_f, hv_s, hv_c, av_f, av_s, av_c, le.transform([h_t])[0], le.transform([a_t])[0]]], 
+                               columns=['H_F','H_S','H_C','A_F','A_S','A_C','HV_F','HV_S','HV_C','AV_F','AV_S','AV_C','H_Idx','A_Idx'])
         
-        # --- NEW: SEARCH FOR SIMILAR PATTERNS ---
-        tol = 0.12 # Tolerance for similarity (12%)
-        similar_cases = df_feat[
-            (df_feat['H_Form'].between(h_f_g-tol, h_f_g+tol)) & 
-            (df_feat['A_Form'].between(a_f_g-tol, a_f_g+tol))
-        ].copy()
+        ia_1x2 = m_1x2.predict_proba(cur_feat)[0]
+        ia_ft_ou = {th: m.predict_proba(cur_feat)[0][1] for th, m in ft_mods.items()}
+        ia_ht_ou = {th: m.predict_proba(cur_feat)[0][1] for th, m in ht_mods.items()}
         
-        # Predict using all features
-        ia_features = pd.DataFrame([
-            [le.transform([h_t])[0], le.transform([a_t])[0], h_f_g, a_f_g, h_f_v, a_f_v]
-        ], columns=['HomeIdx','AwayIdx','H_Form','A_Form','H_Home_Form','A_Away_Form'])
-        base_ia_p = xgb.predict_proba(ia_features)[0]
-        
-        # --- BLEND WITH PATTERN RESULTS ---
-        if not similar_cases.empty:
-            res_counts = similar_cases['FTR'].value_counts(normalize=True).to_dict()
-            pattern_p = np.array([res_counts.get('A', 0), res_counts.get('D', 0), res_counts.get('H', 0)])
-            # Blend: 70% Model, 30% Evidence from patterns
-            ia_p = (base_ia_p * 0.7) + (pattern_p * 0.3)
-        else:
-            ia_p = base_ia_p
-        
-        # 3. Bayes (Simple)
-        try: bh, ba = run_bayesian_simple(df, h_t, a_t); b_res = get_poisson_market(bh, ba); bayes_ok = True
-        except: bayes_ok = False; b_res = None
+        # --- PATTERN MATCHER (Goals integrated) ---
+        tol = 0.15
+        similar = df_feat[(df_feat['H_F'].between(h_f-tol, h_f+tol)) & (df_feat['A_F'].between(a_f-tol, a_f+tol))].tail(10)
         
         st.session_state['results'] = {
-            'p': (p_home, p_draw, p_away, pou, pm_mat),
-            'ia': ia_p,
-            'ia_inputs': (h_f_g, a_f_g, h_f_v, a_f_v),
-            'similar': similar_cases[['Date', 'HomeTeam', 'AwayTeam', 'FTHG', 'FTAG', 'FTR']].tail(5).to_dict('records'),
-            'b': b_res,
-            'teams': (h_t, a_t)
+            'teams': (h_t, a_t),
+            'ft_p': (p_home, p_draw, p_away, pou),
+            'ht_p': (ht_p_home, ht_p_draw, ht_p_away, ht_pou),
+            'ia_1x2': ia_1x2,
+            'ia_ft_ou': ia_ft_ou,
+            'ia_ht_ou': ia_ht_ou,
+            'similar': similar[['Date', 'HomeTeam', 'AwayTeam', 'FTHG', 'FTAG', 'FTR']].to_dict('records'),
+            'stats': (h_f, h_s, h_c, a_f, a_s, a_c)
         }
 
 # --- DISPLAY TABS ---
-if st.session_state['results']:
-    res = st.session_state['results']
-    p_home, p_draw, p_away, pou, pm_mat = res['p']
-    ia_p = res['ia']
-    b_res = res['b']
-    h_t, a_t = res['teams']
-
-    main_tabs = st.tabs(["🎯 Pronóstico Principal", "📈 Mercado de Goles", "💰 Calculadoras y Momios", "🔬 Detalle de Modelos"])
-
     with main_tabs[0]:
         st.subheader(f"📊 Consenso Estratégico: {h_t} vs {a_t}")
-        w_p, w_b, w_i = 0.2, 0.4, 0.4
-        c1 = p_home*w_p + (b_res[0] if b_res else p_home)*w_b + ia_p[2]*w_i
-        cx = p_draw*w_p + (b_res[1] if b_res else p_draw)*w_b + ia_p[1]*w_i
-        c2 = p_away*w_p + (b_res[2] if b_res else p_away)*w_b + ia_p[0]*w_i
+        p_h, p_d, p_a, p_ou = res['ft_p']
+        ia_1x2 = res['ia_1x2']
+        
+        # Consenso 1x2 (Weighted)
+        c1 = (p_h * 0.4) + (ia_1x2[2] * 0.6)
+        cx = (p_d * 0.4) + (ia_1x2[1] * 0.6)
+        c2 = (p_a * 0.4) + (ia_1x2[0] * 0.6)
         
         cols = st.columns(3)
         cols[0].metric("Local (1)", f"{c1*100:.1f}%")
         cols[1].metric("Empate (X)", f"{cx*100:.1f}%")
         cols[2].metric("Visitante (2)", f"{c2*100:.1f}%")
+        
         st.divider()
         st.info(f"🏆 Pronóstico Recomendado: **{'Gana Local' if c1>cx and c1>c2 else 'Empate' if cx>c1 and cx>c2 else 'Gana Visitante'}**")
 
     with main_tabs[1]:
-        st.subheader("Over / Under Markets")
-        g_cols = st.columns(5)
-        for i, th in enumerate([0.5, 1.5, 2.5, 3.5, 4.5]):
-            g_cols[i].metric(f"O/U {th}", f"Over: {pou[th]['Over']*100:.1f}%", f"Under: {pou[th]['Under']*100:.1f}%")
+        st.subheader("📈 Mercado de Goles y Medio Tiempo")
+        ht_h, ht_d, ht_a, ht_ou = res['ht_p']
+        ia_ft_ou = res['ia_ft_ou']
+        ia_ht_ou = res['ia_ht_ou']
         
-        # Display Heatmap with extra robustness
+        st.markdown("#### ⚽ Mercado Final (FT)")
+        # Consensus Over Markets
+        ft_ou_cols = st.columns(4)
+        for i, th in enumerate([0.5, 1.5, 2.5, 3.5]):
+            # Blend Poisson + IA
+            p_val = p_ou[th]['Over']
+            ia_val = ia_ft_ou[th]
+            c_val = (p_val * 0.4) + (ia_val * 0.6)
+            ft_ou_cols[i].metric(f"Consenso O {th}", f"{c_val*100:.1f}%")
+        
+        st.markdown("#### ⏱️ Medio Tiempo (HT)")
+        ht_ou_cols = st.columns(2)
+        for i, th in enumerate([0.5, 1.5]):
+            p_val = ht_ou[th]['Over']
+            ia_val = ia_ht_ou[th]
+            c_val = (p_val * 0.4) + (ia_val * 0.6)
+            ht_ou_cols[i].metric(f"Consenso HT O {th}", f"{c_val*100:.1f}%")
+        
+        st.divider()
+        st.write("**Probabilidades al Descanso (1X2):**")
+        ht_res_cols = st.columns(3)
+        ht_res_cols[0].metric("HT Gana Local", f"{ht_h*100:.1f}%")
+        ht_res_cols[1].metric("HT Empate", f"{ht_d*100:.1f}%")
+        ht_res_cols[2].metric("HT Gana Visita", f"{ht_a*100:.1f}%")
+        
+        # Display Heatmap
         z_data = np.nan_to_num(pm_mat[:6, :6])
         
         if z_data.sum() > 0:

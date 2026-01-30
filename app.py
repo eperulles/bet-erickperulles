@@ -284,7 +284,13 @@ if st.session_state['results']:
 
     with main_tabs[3]:
         st.subheader("🔬 Desglose de Modelos")
-        h_f_g, a_f_g, h_f_v, a_f_v = res.get('ia_inputs', (0,0,0,0))
+        raw_inputs = res.get('ia_inputs', (0,0,0,0))
+        # Robust unpacking (handles old session states with 2 values)
+        if len(raw_inputs) == 4:
+            h_f_g, a_f_g, h_f_v, a_f_v = raw_inputs
+        else:
+            h_f_g, a_f_g = raw_inputs[0], raw_inputs[1]
+            h_f_v, a_f_v = 0.0, 0.0
         
         c_f1, c_f2 = st.columns(2)
         with c_f1:

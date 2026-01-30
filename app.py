@@ -99,7 +99,7 @@ def train_xgboost(df_input):
     y = df_train['Result']
     model = XGBClassifier(use_label_encoder=False, eval_metric='mlogloss', n_estimators=70, max_depth=4)
     model.fit(X, y)
-    return model, le
+    return model, le, df_train
 
 def run_bayesian_simple(df, h_t, a_t):
     subset = df[(df['HomeTeam'].isin([h_t, a_t])) | (df['AwayTeam'].isin([h_t, a_t]))].tail(20)
@@ -165,7 +165,7 @@ if st.sidebar.button("🚀 Calcular Predicción"):
         pm_mat = np.nan_to_num(pm_mat)
         
         # 2. IA (Enhanced with Stacking: Form + Venue Specific Form)
-        xgb, le = train_xgboost(df)
+        xgb, le, df_feat = train_xgboost(df)
         def get_f(t, col=None):
             mask = ((df['HomeTeam']==t) | (df['AwayTeam']==t))
             if col: mask = (df[col]==t)
@@ -174,16 +174,32 @@ if st.sidebar.button("🚀 Calcular Predicción"):
             pts = sum([(3 if (r['HomeTeam']==t and r['FTHG']>r['FTAG']) or (r['AwayTeam']==t and r['FTAG']>r['FTHG']) else 1 if r['FTHG']==r['FTAG'] else 0) for i,r in p.iterrows()])
             return pts/(len(p)*3)
         
-        h_f_global = get_f(h_t)
-        a_f_global = get_f(a_t)
-        h_f_venue = get_f(h_t, 'HomeTeam')
-        a_f_venue = get_f(a_t, 'AwayTeam')
+        h_f_g = get_f(h_t)
+        a_f_g = get_f(a_t)
+        h_f_v = get_f(h_t, 'HomeTeam')
+        a_f_v = get_f(a_t, 'AwayTeam')
+        
+        # --- NEW: SEARCH FOR SIMILAR PATTERNS ---
+        tol = 0.12 # Tolerance for similarity (12%)
+        similar_cases = df_feat[
+            (df_feat['H_Form'].between(h_f_g-tol, h_f_g+tol)) & 
+            (df_feat['A_Form'].between(a_f_g-tol, a_f_g+tol))
+        ].copy()
         
         # Predict using all features
         ia_features = pd.DataFrame([
-            [le.transform([h_t])[0], le.transform([a_t])[0], h_f_global, a_f_global, h_f_venue, a_f_venue]
+            [le.transform([h_t])[0], le.transform([a_t])[0], h_f_g, a_f_g, h_f_v, a_f_v]
         ], columns=['HomeIdx','AwayIdx','H_Form','A_Form','H_Home_Form','A_Away_Form'])
-        ia_p = xgb.predict_proba(ia_features)[0]
+        base_ia_p = xgb.predict_proba(ia_features)[0]
+        
+        # --- BLEND WITH PATTERN RESULTS ---
+        if not similar_cases.empty:
+            res_counts = similar_cases['FTR'].value_counts(normalize=True).to_dict()
+            pattern_p = np.array([res_counts.get('A', 0), res_counts.get('D', 0), res_counts.get('H', 0)])
+            # Blend: 70% Model, 30% Evidence from patterns
+            ia_p = (base_ia_p * 0.7) + (pattern_p * 0.3)
+        else:
+            ia_p = base_ia_p
         
         # 3. Bayes (Simple)
         try: bh, ba = run_bayesian_simple(df, h_t, a_t); b_res = get_poisson_market(bh, ba); bayes_ok = True
@@ -192,7 +208,8 @@ if st.sidebar.button("🚀 Calcular Predicción"):
         st.session_state['results'] = {
             'p': (p_home, p_draw, p_away, pou, pm_mat),
             'ia': ia_p,
-            'ia_inputs': (h_f_global, a_f_global, h_f_venue, a_f_venue),
+            'ia_inputs': (h_f_g, a_f_g, h_f_v, a_f_v),
+            'similar': similar_cases[['Date', 'HomeTeam', 'AwayTeam', 'FTHG', 'FTAG', 'FTR']].tail(5).to_dict('records'),
             'b': b_res,
             'teams': (h_t, a_t)
         }
@@ -283,14 +300,29 @@ if st.session_state['results']:
         display_val(pou[2.5]['Over'], oo25, "Over 2.5")
 
     with main_tabs[3]:
-        st.subheader("🔬 Desglose de Modelos")
+        st.subheader("🔬 Desglose de Modelos y Patrones")
+        
+        # Robust unpacking
         raw_inputs = res.get('ia_inputs', (0,0,0,0))
-        # Robust unpacking (handles old session states with 2 values)
-        if len(raw_inputs) == 4:
-            h_f_g, a_f_g, h_f_v, a_f_v = raw_inputs
+        h_f_g, a_f_g, h_f_v, a_f_v = raw_inputs if len(raw_inputs)==4 else (raw_inputs[0], raw_inputs[1], 0, 0)
+        
+        # --- NEW SECTION: HISTORICAL SIMILARITY ---
+        st.markdown("#### 🕵️ Buscador de Patrones (Casos Similares)")
+        st.write("He buscado partidos en tu CSV donde los equipos tenían una racha casi idéntica a la de hoy:")
+        sim_data = res.get('similar', [])
+        if sim_data:
+            st.table(pd.DataFrame(sim_data))
+            # Calculate outcome distribution
+            results_list = [r['FTR'] for r in sim_data]
+            total = len(results_list)
+            h_pct = results_list.count('H')/total
+            d_pct = results_list.count('D')/total
+            a_pct = results_list.count('A')/total
+            st.info(f"💡 En estos casos similares: **Local {h_pct*100:.0f}%** | **Empate {d_pct*100:.0f}%** | **Visita {a_pct*100:.0f}%**")
         else:
-            h_f_g, a_f_g = raw_inputs[0], raw_inputs[1]
-            h_f_v, a_f_v = 0.0, 0.0
+            st.write("No se encontraron casos históricos con un patrón de forma tan específico.")
+        
+        st.divider()
         
         c_f1, c_f2 = st.columns(2)
         with c_f1:

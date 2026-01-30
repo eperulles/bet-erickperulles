@@ -59,8 +59,10 @@ def get_poisson_market(home_exp, away_exp, max_goals=10):
 @st.cache_data
 def train_xgboost(df_input):
     df_train = df_input.copy()
-    df_train['Date'] = pd.to_datetime(df_train['Date'])
-    df_train = df_train.sort_values('Date').tail(500)
+    # Fix date parsing for European formats
+    df_train['Date'] = pd.to_datetime(df_train['Date'], dayfirst=True, errors='coerce')
+    df_train = df_train.dropna(subset=['Date'])
+    df_train = df_train.sort_values('Date').tail(1000) # Increased history
     
     def calc_form(team, date, lookback=5):
         past = df_train[(df_train['Date'] < date) & ((df_train['HomeTeam'] == team) | (df_train['AwayTeam'] == team))].tail(lookback)
@@ -155,13 +157,20 @@ if st.sidebar.button("🚀 Calcular Predicción"):
         # Ensure matrix is valid
         pm_mat = np.nan_to_num(pm_mat)
         
-        # 2. IA
+        # 2. IA (Enhanced with Stacking: Form + Poisson as features)
         xgb, le = train_xgboost(df)
         def get_f(t):
             p = df[((df['HomeTeam']==t) | (df['AwayTeam']==t))].tail(5)
+            if len(p) == 0: return 0.33 # Default neutral form
             pts = sum([(3 if (r['HomeTeam']==t and r['FTHG']>r['FTAG']) or (r['AwayTeam']==t and r['FTAG']>r['FTHG']) else 1 if r['FTHG']==r['FTAG'] else 0) for i,r in p.iterrows()])
             return pts/15
-        ia_p = xgb.predict_proba(pd.DataFrame([[le.transform([h_t])[0], le.transform([a_t])[0], get_f(h_t), get_f(a_t)]], columns=['HomeIdx','AwayIdx','H_Form','A_Form']))[0]
+        
+        h_form = get_f(h_t)
+        a_form = get_f(a_t)
+        
+        # Predict using Form + Statistical Base
+        ia_features = pd.DataFrame([[le.transform([h_t])[0], le.transform([a_t])[0], h_form, a_form]], columns=['HomeIdx','AwayIdx','H_Form','A_Form'])
+        ia_p = xgb.predict_proba(ia_features)[0]
         
         # 3. Bayes (Simple)
         try: bh, ba = run_bayesian_simple(df, h_t, a_t); b_res = get_poisson_market(bh, ba); bayes_ok = True
@@ -170,6 +179,7 @@ if st.sidebar.button("🚀 Calcular Predicción"):
         st.session_state['results'] = {
             'p': (p_home, p_draw, p_away, pou, pm_mat),
             'ia': ia_p,
+            'ia_inputs': (h_form, a_form),
             'b': b_res,
             'teams': (h_t, a_t)
         }
@@ -261,7 +271,22 @@ if st.session_state['results']:
 
     with main_tabs[3]:
         st.subheader("🔬 Desglose de Modelos")
+        h_form, a_form = res.get('ia_inputs', (0,0))
+        
+        st.markdown(f"""
+        **Análisis de Forma (Últimos 5 partidos):**
+        - {h_t}: **{h_form*100:.1f}%** de puntos posibles.
+        - {a_t}: **{a_form*100:.1f}%** de puntos posibles.
+        """)
+        
+        st.divider()
         d_c1, d_c2, d_c3 = st.columns(3)
-        d_c1.write("**Poisson:**"); d_c1.write(f"1: {p_home*100:.1f}% | X: {p_draw*100:.1f}% | 2: {p_away*100:.1f}%")
-        d_c2.write("**IA XGBoost:**"); d_c2.write(f"1: {ia_p[2]*100:.1f}% | X: {ia_p[1]*100:.1f}% | 2: {ia_p[0]*100:.1f}%")
-        if b_res: d_c3.write("**Bayesiano:**"); d_c3.write(f"1: {b_res[0]*100:.1f}% | X: {b_res[1]*100:.1f}% | 2: {b_res[2]*100:.1f}%")
+        d_c1.write("**Poisson (Histórico):**")
+        d_c1.write(f"1: {p_home*100:.1f}% | X: {p_draw*100:.1f}% | 2: {p_away*100:.1f}%")
+        
+        d_c2.write("**IA (Tendencia):**")
+        d_c2.write(f"1: {ia_p[2]*100:.1f}% | X: {ia_p[1]*100:.1f}% | 2: {ia_p[0]*100:.1f}%")
+        
+        if b_res: 
+            d_c3.write("**Bayesiano (Dinamico):**")
+            d_c3.write(f"1: {b_res[0]*100:.1f}% | X: {b_res[1]*100:.1f}% | 2: {b_res[2]*100:.1f}%")

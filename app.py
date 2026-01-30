@@ -202,7 +202,7 @@ if st.session_state['results']:
         st.info(f"🏆 Recomendación: **{'Gana Local' if c1>cx and c1>c2 else 'Empate' if cx>c1 and cx>c2 else 'Gana Visita'}**")
 
     with tabs[1]:
-        st.subheader("📈 Mercados de Goles")
+        st.subheader("📈 Mercados de Goles y Medio Tiempo")
         c_ft, c_ht = st.columns(2)
         with c_ft:
             st.write("**Full Time (Consenso IA+Poisson):**")
@@ -210,7 +210,11 @@ if st.session_state['results']:
                 cv = p_ou[th]['Over']*0.4 + ia_ft_ou[th]*0.6
                 st.write(f"Over {th}: **{cv*100:.1f}%**")
         with c_ht:
-            st.write("**Half Time (Consenso):**")
+            st.write("**Half Time (1X2 & Goles):**")
+            st.write(f"HT Gana Local: **{ht_h*100:.1f}%**")
+            st.write(f"HT Empate: **{ht_d*100:.1f}%**")
+            st.write(f"HT Gana Visita: **{ht_a*100:.1f}%**")
+            st.write("---")
             for th in [0.5, 1.5]:
                 cv = ht_ou[th]['Over']*0.4 + ia_ht_ou[th]*0.6
                 st.write(f"HT Over {th}: **{cv*100:.1f}%**")
@@ -233,10 +237,32 @@ if st.session_state['results']:
         calc_v(c1, o1, "Local"), calc_v(cx, ox, "Empate"), calc_v(c2, o2, "Visita")
 
     with tabs[3]:
-        st.subheader("🔬 Detalle de Modelos")
-        st.markdown("#### 🕵️ Casos Similares en Historia")
-        if res['similar']: st.table(pd.DataFrame(res['similar']))
-        else: st.write("Sin patrones idénticos.")
+        st.subheader("🔬 Detalle de Modelos y Rachas")
+        st.markdown("#### 🕵️ Casos Similares en Historia (Patrones)")
+        if res['similar']: 
+            sim_df = pd.DataFrame(res['similar'])
+            st.table(sim_df)
+            # Calculate outcome distribution for the user
+            rl = sim_df['FTR'].tolist()
+            tot = len(rl)
+            st.info(f"💡 Evidencia Real de este Patrón: **L {rl.count('H')/tot*100:.0f}%** | **X {rl.count('D')/tot*100:.0f}%** | **V {rl.count('A')/tot*100:.0f}%**")
+        else: 
+            st.write("Sin patrones idénticos.")
+        
+        st.divider()
+        st.markdown("#### 📈 Desglose de Forma por Equipo")
+        h0, h1, h2, a0, a1, a2, hv0, hv1, hv2, av0, av1, av2 = res['stats']
+        c_stats1, c_stats2 = st.columns(2)
+        with c_stats1:
+            st.markdown(f"**{h_t} (Personalizado)**")
+            st.write(f"Forma Global (L5): **{h0*100:.1f}%**")
+            st.write(f"Forma de Local (L5 en casa): **{hv0*100:.1f}%**")
+            st.write(f"Promedio Goles L5: **{h1:.1f} Marcados / {h2:.1f} Recibidos**")
+        with c_stats2:
+            st.markdown(f"**{a_t} (Personalizado)**")
+            st.write(f"Forma Global (L5): **{a0*100:.1f}%**")
+            st.write(f"Forma de Visitante (L5 fuera): **{av0*100:.1f}%**")
+            st.write(f"Promedio Goles L5: **{a1:.1f} Marcados / {a2:.1f} Recibidos**")
         
         st.divider()
         d1, d2, d3 = st.columns(3)

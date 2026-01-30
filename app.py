@@ -122,15 +122,23 @@ a_t = st.sidebar.selectbox("✈️ Equipo Visitante", teams, index=1)
 if st.sidebar.button("🚀 Calcular Predicción"):
     with st.spinner('Analizando datos...'):
         # 1. Poisson
-        avg_h, avg_a = df['FTHG'].mean(), df['FTAG'].mean()
+        # Global Averages with fallback
+        avg_h = df['FTHG'].mean()
+        avg_a = df['FTAG'].mean()
+        if np.isnan(avg_h) or avg_h <= 0: avg_h = 1.35
+        if np.isnan(avg_a) or avg_a <= 0: avg_a = 1.15
         
         # Robust metric calculation with NaN handling
         def get_team_metric(team, col):
-            val = df[df[col]==team]['FTHG' if col=='HomeTeam' else 'FTAG'].mean()
+            rows = df[df[col]==team]
+            if len(rows) == 0: return avg_h if col=='HomeTeam' else avg_a
+            val = rows['FTHG' if col=='HomeTeam' else 'FTAG'].mean()
             return val if not np.isnan(val) else (avg_h if col=='HomeTeam' else avg_a)
 
         def get_team_def(team, col):
-            val = df[df[col]==team]['FTAG' if col=='HomeTeam' else 'FTHG'].mean()
+            rows = df[df[col]==team]
+            if len(rows) == 0: return avg_a if col=='HomeTeam' else avg_h
+            val = rows['FTAG' if col=='HomeTeam' else 'FTHG'].mean()
             return val if not np.isnan(val) else (avg_a if col=='HomeTeam' else avg_h)
 
         ha = get_team_metric(h_t, 'HomeTeam') / avg_h
@@ -138,11 +146,13 @@ if st.sidebar.button("🚀 Calcular Predicción"):
         aa = get_team_metric(a_t, 'AwayTeam') / avg_a
         ad = get_team_def(a_t, 'AwayTeam') / avg_h
         
-        # Ensure no NaN gets into the Poisson model
-        h_exp = max(0.01, (ha * ad * avg_h))
-        a_exp = max(0.01, (aa * hd * avg_a))
+        # Safety checks for division by zero or extreme values
+        h_exp = np.clip(ha * ad * avg_h, 0.01, 10.0)
+        a_exp = np.clip(aa * hd * avg_a, 0.01, 10.0)
         
         p1, px, p2, pou, pm_mat = get_poisson_market(h_exp, a_exp)
+        # Ensure matrix is valid
+        pm_mat = np.nan_to_num(pm_mat)
         
         # 2. IA
         xgb, le = train_xgboost(df)
@@ -193,23 +203,33 @@ if st.session_state['results']:
         for i, th in enumerate([0.5, 1.5, 2.5, 3.5, 4.5]):
             g_cols[i].metric(f"O/U {th}", f"Over: {pou[th]['Over']*100:.1f}%", f"Under: {pou[th]['Under']*100:.1f}%")
         
+        # Display Heatmap with extra robustness
+        z_data = pm_mat[:6, :6]
+        
         fig = go.Figure(data=go.Heatmap(
-            z=pm_mat[:6,:6], 
+            z=z_data, 
             x=[str(i) for i in range(6)], 
             y=[str(i) for i in range(6)], 
-            colorscale='Blues',
-            text=np.around(pm_mat[:6,:6]*100, 1),
+            colorscale='Viridis',
+            zmin=0,
+            text=np.around(z_data*100, 1),
             texttemplate="%{text}%",
-            textfont={"size":10},
-            hovertemplate="Goles Local: %{y}<br>Goles Visitante: %{x}<br>Probabilidad: %{z:.1%}<extra></extra>"
+            textfont={"size":11, "color":"white"},
+            showscale=True,
+            hovertemplate="Local: %{y} - Visitante: %{x}<br>Prob: %{z:.2%}<extra></extra>"
         ))
+        
         fig.update_layout(
-            title="Matriz de Probabilidad de Marcador Exacto (%)",
+            title="Matriz de Probabilidades (Marcador Exacto)",
             xaxis_title="Goles Visitante",
             yaxis_title="Goles Local",
-            width=500, height=500
+            width=550, height=500,
+            margin=dict(l=50, r=50, t=80, b=50)
         )
-        st.plotly_chart(fig)
+        st.plotly_chart(fig, use_container_width=False)
+        
+        with st.expander("📝 Ver probabilidades en tabla"):
+            st.dataframe(pd.DataFrame(z_data, columns=[f"V_{i}" for i in range(6)], index=[f"L_{i}" for i in range(6)]).style.format("{:.1%}"))
 
     with main_tabs[2]:
         st.subheader("💰 Análisis de Valor y Staking")

@@ -204,32 +204,41 @@ if st.session_state['results']:
             g_cols[i].metric(f"O/U {th}", f"Over: {pou[th]['Over']*100:.1f}%", f"Under: {pou[th]['Under']*100:.1f}%")
         
         # Display Heatmap with extra robustness
-        z_data = pm_mat[:6, :6]
+        z_data = np.nan_to_num(pm_mat[:6, :6])
         
-        fig = go.Figure(data=go.Heatmap(
-            z=z_data, 
-            x=[str(i) for i in range(6)], 
-            y=[str(i) for i in range(6)], 
-            colorscale='Viridis',
-            zmin=0,
-            text=np.around(z_data*100, 1),
-            texttemplate="%{text}%",
-            textfont={"size":11, "color":"white"},
-            showscale=True,
-            hovertemplate="Local: %{y} - Visitante: %{x}<br>Prob: %{z:.2%}<extra></extra>"
-        ))
+        if z_data.sum() > 0:
+            import plotly.express as px
+            
+            # Create a nice dataframe for the heatmap
+            df_heatmap = pd.DataFrame(
+                z_data, 
+                index=[f"Local {i}" for i in range(6)],
+                columns=[f"Vis. {i}" for i in range(6)]
+            )
+            
+            fig = px.imshow(
+                z_data,
+                labels=dict(x="Goles Visitante", y="Goles Local", color="Probabilidad"),
+                x=[str(i) for i in range(6)],
+                y=[str(i) for i in range(6)],
+                color_continuous_scale='RdYlGn', # Red-Yellow-Green for better visibility
+                text_auto='.1%', # This shows percentages in the boxes automatically
+                aspect="equal"
+            )
+            
+            fig.update_xaxes(side="top")
+            fig.update_layout(
+                title="Probabilidad de Marcador Exacto",
+                width=600, height=600,
+                coloraxis_showscale=False # Remove scale to save space
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.error("⚠️ Error crítico: La matriz de probabilidades se generó vacía. Esto puede deberse a que los datos del CSV tienen valores inválidos para estos equipos.")
         
-        fig.update_layout(
-            title="Matriz de Probabilidades (Marcador Exacto)",
-            xaxis_title="Goles Visitante",
-            yaxis_title="Goles Local",
-            width=550, height=500,
-            margin=dict(l=50, r=50, t=80, b=50)
-        )
-        st.plotly_chart(fig, use_container_width=False)
-        
-        with st.expander("📝 Ver probabilidades en tabla"):
-            st.dataframe(pd.DataFrame(z_data, columns=[f"V_{i}" for i in range(6)], index=[f"L_{i}" for i in range(6)]).style.format("{:.1%}"))
+        with st.expander("📝 Ver tabla técnica de probabilidades"):
+            st.table(pd.DataFrame(z_data, columns=[f"V_{i}" for i in range(6)], index=[f"L_{i}" for i in range(6)]).style.format("{:.2%}"))
 
     with main_tabs[2]:
         st.subheader("💰 Análisis de Valor y Staking")

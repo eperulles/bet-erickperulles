@@ -123,11 +123,26 @@ if st.sidebar.button("🚀 Calcular Predicción"):
     with st.spinner('Analizando datos...'):
         # 1. Poisson
         avg_h, avg_a = df['FTHG'].mean(), df['FTAG'].mean()
-        ha = df[df['HomeTeam']==h_t]['FTHG'].mean() / avg_h
-        hd = df[df['HomeTeam']==h_t]['FTAG'].mean() / avg_a
-        aa = df[df['AwayTeam']==a_t]['FTAG'].mean() / avg_a
-        ad = df[df['AwayTeam']==a_t]['FTHG'].mean() / avg_h
-        p1, px, p2, pou, pm_mat = get_poisson_market(ha*ad*avg_h, aa*hd*avg_a)
+        
+        # Robust metric calculation with NaN handling
+        def get_team_metric(team, col):
+            val = df[df[col]==team]['FTHG' if col=='HomeTeam' else 'FTAG'].mean()
+            return val if not np.isnan(val) else (avg_h if col=='HomeTeam' else avg_a)
+
+        def get_team_def(team, col):
+            val = df[df[col]==team]['FTAG' if col=='HomeTeam' else 'FTHG'].mean()
+            return val if not np.isnan(val) else (avg_a if col=='HomeTeam' else avg_h)
+
+        ha = get_team_metric(h_t, 'HomeTeam') / avg_h
+        hd = get_team_def(h_t, 'HomeTeam') / avg_a
+        aa = get_team_metric(a_t, 'AwayTeam') / avg_a
+        ad = get_team_def(a_t, 'AwayTeam') / avg_h
+        
+        # Ensure no NaN gets into the Poisson model
+        h_exp = max(0.01, (ha * ad * avg_h))
+        a_exp = max(0.01, (aa * hd * avg_a))
+        
+        p1, px, p2, pou, pm_mat = get_poisson_market(h_exp, a_exp)
         
         # 2. IA
         xgb, le = train_xgboost(df)
@@ -178,8 +193,22 @@ if st.session_state['results']:
         for i, th in enumerate([0.5, 1.5, 2.5, 3.5, 4.5]):
             g_cols[i].metric(f"O/U {th}", f"Over: {pou[th]['Over']*100:.1f}%", f"Under: {pou[th]['Under']*100:.1f}%")
         
-        fig = go.Figure(data=go.Heatmap(z=pm_mat[:5,:5], x=list(range(5)), y=list(range(5)), colorscale='Blues'))
-        fig.update_layout(title="Matriz de Goles Exactos (Poisson)", width=400, height=400)
+        fig = go.Figure(data=go.Heatmap(
+            z=pm_mat[:6,:6], 
+            x=[str(i) for i in range(6)], 
+            y=[str(i) for i in range(6)], 
+            colorscale='Blues',
+            text=np.around(pm_mat[:6,:6]*100, 1),
+            texttemplate="%{text}%",
+            textfont={"size":10},
+            hovertemplate="Goles Local: %{y}<br>Goles Visitante: %{x}<br>Probabilidad: %{z:.1%}<extra></extra>"
+        ))
+        fig.update_layout(
+            title="Matriz de Probabilidad de Marcador Exacto (%)",
+            xaxis_title="Goles Visitante",
+            yaxis_title="Goles Local",
+            width=500, height=500
+        )
         st.plotly_chart(fig)
 
     with main_tabs[2]:

@@ -1,0 +1,10 @@
+streamlit==1.31.0
+pandas
+numpy
+scipy
+plotly
+xgboost
+pymc
+arviz
+pytensor
+scikit-learn

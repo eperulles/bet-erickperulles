@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BetIQ – Análisis de Resultados</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+    rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #080c14;
+      --surface: #0e1623;
+      --surface2: #131d2e;
+      --border: rgba(99, 179, 237, 0.12);
+      --accent: #3b82f6;
+      --accent2: #f59e0b;
+      --green: #10b981;
+      --red: #ef4444;
+      --text: #e2e8f0;
+      --muted: #64748b;
+      --radius: 14px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+
+    /* ── Nav ────────────────────────────────────── */
+    nav {
+      background: linear-gradient(135deg, #0a1628 0%, #0e1f3d 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    nav .logo { font-size: 1.4rem; font-weight: 800; }
+    nav .logo span { color: var(--accent); }
+    nav a {
+      color: var(--muted);
+      text-decoration: none;
+      font-weight: 500;
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      transition: all 0.2s;
+    }
+    nav a:hover, nav a.active { color: var(--text); background: var(--surface2); }
+    nav .links { display: flex; gap: 0.5rem; }
+
+    .container { max-width: 1400px; margin: 0 auto; padding: 2rem; }
+
+    /* ── Cards ──────────────────────────────────── */
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.2rem; margin-bottom: 2rem; }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      text-align: center;
+    }
+    .card .value { font-size: 2.2rem; font-weight: 800; margin: 0.3rem 0; }
+    .card .label { color: var(--muted); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; }
+    .card.positive .value { color: var(--green); }
+    .card.negative .value { color: var(--red); }
+    .card.neutral .value { color: var(--accent); }
+
+    /* ── Charts ─────────────────────────────────── */
+    .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem; }
+    .chart-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+    }
+    .chart-box h3 { margin-bottom: 1rem; font-size: 1rem; color: var(--muted); }
+
+    /* ── Table ──────────────────────────────────── */
+    .section-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 1rem; }
+    .table-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow-x: auto;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    th, td { padding: 0.75rem 1rem; text-align: left; border-bottom: 1px solid var(--border); }
+    th { color: var(--muted); font-weight: 600; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.05em; }
+    tr:hover { background: var(--surface2); }
+    .badge {
+      display: inline-block; padding: 0.15rem 0.6rem; border-radius: 6px;
+      font-size: 0.75rem; font-weight: 600;
+    }
+    .badge.win { background: rgba(16,185,129,0.15); color: var(--green); }
+    .badge.loss { background: rgba(239,68,68,0.15); color: var(--red); }
+    .badge.draw { background: rgba(245,158,11,0.15); color: var(--accent2); }
+
+    /* ── ML Status ─────────────────────────────── */
+    .ml-status {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    .ml-status .info { flex: 1; }
+    .ml-status .info h3 { font-size: 1rem; margin-bottom: 0.3rem; }
+    .ml-status .info p { color: var(--muted); font-size: 0.85rem; }
+    .progress-bar {
+      width: 200px; height: 8px; background: var(--surface2);
+      border-radius: 4px; overflow: hidden;
+    }
+    .progress-bar .fill { height: 100%; background: var(--accent); border-radius: 4px; transition: width 0.5s; }
+    .btn {
+      padding: 0.6rem 1.2rem; border-radius: 8px; border: none;
+      font-weight: 600; font-size: 0.85rem; cursor: pointer; transition: all 0.2s;
+    }
+    .btn-primary { background: var(--accent); color: white; }
+    .btn-primary:hover { opacity: 0.9; }
+    .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+    .btn-secondary:hover { background: rgba(59,130,246,0.1); }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+    .empty-state { text-align: center; padding: 4rem 2rem; color: var(--muted); }
+    .empty-state h2 { font-size: 1.3rem; margin-bottom: 0.5rem; color: var(--text); }
+
+    @media (max-width: 800px) {
+      .charts { grid-template-columns: 1fr; }
+      .cards { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+
+<body>
+  <nav>
+    <div class="logo">Bet<span>IQ</span> — Análisis</div>
+    <div class="links">
+      <a href="index.html">Dashboard</a>
+      <a href="#" class="active">Resultados</a>
+    </div>
+  </nav>
+
+  <div class="container" id="app">
+    <!-- Loading state -->
+    <div id="loading" class="empty-state">
+      <h2>Cargando datos...</h2>
+      <p>Conectando con el backend</p>
+    </div>
+
+    <!-- Empty state -->
+    <div id="empty" class="empty-state" style="display:none">
+      <h2>Sin datos suficientes</h2>
+      <p>El sistema necesita acumular predicciones y resultados para mostrar análisis.</p>
+      <p style="margin-top:1rem">Usa el dashboard principal para generar predicciones. Los resultados se recopilan automáticamente.</p>
+      <div class="actions" style="justify-content:center; margin-top:1.5rem">
+        <button class="btn btn-primary" onclick="fetchResults()">Actualizar Resultados</button>
+        <button class="btn btn-secondary" onclick="loadData()">Recargar</button>
+      </div>
+    </div>
+
+    <!-- Main content -->
+    <div id="content" style="display:none">
+
+      <!-- Summary Cards -->
+      <div class="cards" id="cards"></div>
+
+      <!-- ML Model Status -->
+      <div class="ml-status" id="ml-section">
+        <div class="info">
+          <h3>Modelo ML</h3>
+          <p id="ml-text">Cargando...</p>
+          <div class="progress-bar" style="margin-top:0.5rem">
+            <div class="fill" id="ml-progress" style="width:0%"></div>
+          </div>
+        </div>
+        <div class="actions">
+          <button class="btn btn-primary" id="btn-train" onclick="trainML()" disabled>Entrenar Modelo</button>
+          <button class="btn btn-secondary" onclick="fetchResults()">Actualizar Resultados</button>
+          <button class="btn btn-secondary" onclick="recalibrate()">Recalibrar DC</button>
+        </div>
+      </div>
+
+      <!-- Charts -->
+      <div class="charts">
+        <div class="chart-box">
+          <h3>Accuracy por Liga</h3>
+          <canvas id="chart-leagues"></canvas>
+        </div>
+        <div class="chart-box">
+          <h3>Calibración (Prob. Predicha vs Real)</h3>
+          <canvas id="chart-calibration"></canvas>
+        </div>
+      </div>
+
+      <!-- Recent Predictions Table -->
+      <div class="section-title">Predicciones Recientes con Resultado</div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Liga</th>
+              <th>Partido</th>
+              <th>Predicción (H/D/A)</th>
+              <th>Resultado</th>
+              <th>Goles</th>
+              <th>Acertó</th>
+            </tr>
+          </thead>
+          <tbody id="predictions-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+      ? 'http://localhost:8000'
+      : window.location.origin;
+    let leagueChart = null;
+    let calChart = null;
+
+    async function loadData() {
+      try {
+        const [metrics, calibration, predictions, byLeague, mlStatus] = await Promise.all([
+          fetch(`${API}/analysis/metrics`).then(r => r.json()),
+          fetch(`${API}/analysis/calibration`).then(r => r.json()),
+          fetch(`${API}/analysis/predictions?limit=50`).then(r => r.json()),
+          fetch(`${API}/analysis/by-league`).then(r => r.json()),
+          fetch(`${API}/ml/status`).then(r => r.json()),
+        ]);
+
+        document.getElementById('loading').style.display = 'none';
+
+        if (metrics.total === 0) {
+          document.getElementById('empty').style.display = 'block';
+          document.getElementById('content').style.display = 'none';
+          return;
+        }
+
+        document.getElementById('empty').style.display = 'none';
+        document.getElementById('content').style.display = 'block';
+
+        renderCards(metrics);
+        renderMLStatus(mlStatus);
+        renderLeagueChart(byLeague);
+        renderCalibrationChart(calibration);
+        renderPredictions(predictions);
+      } catch (e) {
+        document.getElementById('loading').innerHTML =
+          `<h2>Error de conexión</h2><p>No se pudo conectar al backend en ${API}</p>
+           <p style="margin-top:0.5rem;color:var(--muted)">Asegúrate de que el backend esté corriendo.</p>`;
+      }
+    }
+
+    function renderCards(m) {
+      const roiClass = m.roi > 0 ? 'positive' : m.roi < 0 ? 'negative' : 'neutral';
+      document.getElementById('cards').innerHTML = `
+        <div class="card neutral"><div class="label">Predicciones evaluadas</div><div class="value">${m.total}</div></div>
+        <div class="card ${m.accuracy_1x2 > 40 ? 'positive' : 'negative'}">
+          <div class="label">Accuracy 1X2</div><div class="value">${m.accuracy_1x2}%</div></div>
+        <div class="card neutral"><div class="label">Brier Score</div><div class="value">${m.brier_score}</div>
+          <div class="label" style="margin-top:0.3rem">Menor = mejor (ideal: 0)</div></div>
+        <div class="card ${roiClass}"><div class="label">ROI Value Bets</div><div class="value">${m.roi > 0 ? '+' : ''}${m.roi}%</div>
+          <div class="label" style="margin-top:0.3rem">${m.total_staked} apuestas</div></div>
+      `;
+    }
+
+    function renderMLStatus(ml) {
+      const pct = Math.min(100, Math.round((ml.predictions_matched / ml.min_samples_required) * 100));
+      document.getElementById('ml-progress').style.width = pct + '%';
+      document.getElementById('btn-train').disabled = !ml.ready_to_train;
+
+      if (ml.model_available) {
+        document.getElementById('ml-text').textContent =
+          `Modelo activo — ${ml.predictions_matched} muestras entrenadas`;
+        document.getElementById('ml-progress').style.background = 'var(--green)';
+        document.getElementById('ml-progress').style.width = '100%';
+      } else if (ml.ready_to_train) {
+        document.getElementById('ml-text').textContent =
+          `Listo para entrenar — ${ml.predictions_matched} muestras disponibles`;
+        document.getElementById('ml-progress').style.background = 'var(--accent2)';
+      } else {
+        document.getElementById('ml-text').textContent =
+          `Acumulando datos: ${ml.predictions_matched}/${ml.min_samples_required} muestras`;
+      }
+    }
+
+    function renderLeagueChart(byLeague) {
+      const labels = Object.keys(byLeague).map(k => k.replace('_', ' ').replace(/(^\w|\s\w)/g, m => m.toUpperCase()));
+      const values = Object.values(byLeague).map(v => v.accuracy_1x2);
+      const counts = Object.values(byLeague).map(v => v.total);
+
+      if (leagueChart) leagueChart.destroy();
+      leagueChart = new Chart(document.getElementById('chart-leagues'), {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Accuracy 1X2 (%)',
+            data: values,
+            backgroundColor: values.map(v => v > 45 ? 'rgba(16,185,129,0.6)' : 'rgba(239,68,68,0.6)'),
+            borderRadius: 6,
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: { afterLabel: (ctx) => `${counts[ctx.dataIndex]} predicciones` }
+            }
+          },
+          scales: {
+            y: { beginAtZero: true, max: 100, ticks: { color: '#64748b' }, grid: { color: 'rgba(99,179,237,0.06)' } },
+            x: { ticks: { color: '#64748b' }, grid: { display: false } },
+          }
+        }
+      });
+    }
+
+    function renderCalibrationChart(cal) {
+      if (calChart) calChart.destroy();
+      calChart = new Chart(document.getElementById('chart-calibration'), {
+        type: 'line',
+        data: {
+          labels: cal.bins,
+          datasets: [
+            {
+              label: 'Frecuencia Real',
+              data: cal.actual,
+              borderColor: '#3b82f6',
+              backgroundColor: 'rgba(59,130,246,0.1)',
+              fill: true,
+              tension: 0.3,
+              pointRadius: 5,
+            },
+            {
+              label: 'Calibración Perfecta',
+              data: cal.predicted,
+              borderColor: '#64748b',
+              borderDash: [5, 5],
+              pointRadius: 0,
+              fill: false,
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            tooltip: {
+              callbacks: { afterLabel: (ctx) => `${cal.counts[ctx.dataIndex]} muestras` }
+            }
+          },
+          scales: {
+            y: { beginAtZero: true, max: 1, title: { display: true, text: 'Frecuencia Real', color: '#64748b' },
+              ticks: { color: '#64748b' }, grid: { color: 'rgba(99,179,237,0.06)' } },
+            x: { title: { display: true, text: 'Probabilidad Predicha', color: '#64748b' },
+              ticks: { color: '#64748b' }, grid: { display: false } },
+          }
+        }
+      });
+    }
+
+    function renderPredictions(preds) {
+      const tbody = document.getElementById('predictions-body');
+      if (!preds.length) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted)">Sin predicciones evaluadas</td></tr>';
+        return;
+      }
+      tbody.innerHTML = preds.map(p => {
+        const ph = (p.prob_home * 100).toFixed(0);
+        const pd = (p.prob_draw * 100).toFixed(0);
+        const pa = (p.prob_away * 100).toFixed(0);
+        const predicted = p.prob_home >= p.prob_draw && p.prob_home >= p.prob_away ? 'H'
+          : p.prob_draw >= p.prob_away ? 'D' : 'A';
+        const correct = predicted === p.result;
+        const badgeClass = p.result === 'H' ? 'win' : p.result === 'A' ? 'loss' : 'draw';
+        const resultLabel = { H: 'Local', D: 'Empate', A: 'Visitante' }[p.result];
+        return `<tr>
+          <td>${p.match_date || '-'}</td>
+          <td>${p.league_id || '-'}</td>
+          <td>${p.home_team} vs ${p.away_team}</td>
+          <td>${ph}% / ${pd}% / ${pa}%</td>
+          <td><span class="badge ${badgeClass}">${resultLabel}</span></td>
+          <td>${p.home_goals}-${p.away_goals}</td>
+          <td>${correct ? '✅' : '❌'}</td>
+        </tr>`;
+      }).join('');
+    }
+
+    async function fetchResults() {
+      try {
+        const r = await fetch(`${API}/results/update`, { method: 'POST' });
+        const data = await r.json();
+        alert(data.message);
+        loadData();
+      } catch (e) { alert('Error actualizando resultados'); }
+    }
+
+    async function trainML() {
+      document.getElementById('btn-train').disabled = true;
+      try {
+        const r = await fetch(`${API}/ml/train`, { method: 'POST' });
+        const data = await r.json();
+        alert(data.message);
+        loadData();
+      } catch (e) { alert('Error entrenando modelo'); }
+    }
+
+    async function recalibrate() {
+      if (!confirm('Recalibrar parámetros Dixon-Coles? Esto puede tardar 2-5 minutos.')) return;
+      try {
+        const r = await fetch(`${API}/recalibrate`, { method: 'POST' });
+        const data = await r.json();
+        alert(data.message);
+      } catch (e) { alert('Error recalibrando'); }
+    }
+
+    loadData();
+  </script>
+</body>
+</html>

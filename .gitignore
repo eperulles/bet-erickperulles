@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# Environment
+.env
+*.env
+
+# Database (se regenera automáticamente)
+backend/betiq.db
+
+# ML model (se regenera con entrenamiento)
+backend/ml_meta_model.pkl
+
+# Cache (se regenera automáticamente)
+backend/data_cache/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Claude Code
+.claude/
+
+# Archivos no relacionados al proyecto
+1.csv
+Principal-editable-1Alumno.pdf
+test.txt
+test2.txt
+/index.html

@@ -1,0 +1,1285 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BetIQ – Dashboard de Probabilidades</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+    rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #080c14;
+      --surface: #0e1623;
+      --surface2: #131d2e;
+      --border: rgba(99, 179, 237, 0.12);
+      --accent: #3b82f6;
+      --accent2: #f59e0b;
+      --green: #10b981;
+      --red: #ef4444;
+      --yellow: #f59e0b;
+      --text: #e2e8f0;
+      --muted: #64748b;
+      --radius: 14px;
+    }
+
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+
+    /* ── Header ─────────────────────────────────────────── */
+    header {
+      background: linear-gradient(135deg, #0a1628 0%, #0e1f3d 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 18px 32px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(10px);
+    }
+
+    .logo {
+      font-size: 1.6rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, #3b82f6, #f59e0b);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: -0.5px;
+    }
+
+    .logo-sub {
+      font-size: 0.75rem;
+      color: var(--muted);
+      font-weight: 400;
+      margin-top: -2px;
+    }
+
+    .header-badge {
+      margin-left: auto;
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: #10b981;
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 20px;
+      letter-spacing: 0.5px;
+    }
+
+    /* ── Layout ─────────────────────────────────────────── */
+    main {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 28px 24px;
+    }
+
+    section {
+      margin-bottom: 36px;
+    }
+
+    .section-title {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--muted);
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .section-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* ── Glass Card ─────────────────────────────────────── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      transition: border-color 0.2s;
+    }
+
+    .card:hover {
+      border-color: rgba(99, 179, 237, 0.25);
+    }
+
+    /* ── Value Picks Section ────────────────────────────── */
+    #picks-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 14px;
+    }
+
+    .pick-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      cursor: pointer;
+      transition: all 0.25s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .pick-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      opacity: 0;
+      transition: opacity 0.25s;
+    }
+
+    .pick-card:hover {
+      transform: translateY(-3px);
+      border-color: var(--accent);
+    }
+
+    .pick-card:hover::before {
+      opacity: 1;
+    }
+
+    .pick-league {
+      font-size: 0.65rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--accent);
+      margin-bottom: 6px;
+    }
+
+    .pick-match {
+      font-size: 0.9rem;
+      font-weight: 700;
+      margin-bottom: 4px;
+      color: #fff;
+    }
+
+    .pick-match span {
+      color: var(--muted);
+      font-weight: 400;
+    }
+
+    .pick-market {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+
+    .pick-market strong {
+      color: var(--text);
+    }
+
+    .pick-stats {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .edge-badge {
+      font-size: 0.8rem;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 20px;
+      background: rgba(16, 185, 129, 0.15);
+      color: #10b981;
+    }
+
+    .edge-badge.medium {
+      background: rgba(245, 158, 11, 0.15);
+      color: var(--yellow);
+    }
+
+    .edge-badge.low {
+      background: rgba(99, 179, 237, 0.1);
+      color: var(--accent);
+    }
+
+    .prob-text {
+      font-size: 0.72rem;
+      color: var(--muted);
+    }
+
+    .pick-bar {
+      margin-top: 10px;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .pick-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #10b981, #3b82f6);
+      border-radius: 2px;
+      transition: width 0.8s ease;
+    }
+
+    .pick-date {
+      font-size: 0.65rem;
+      color: var(--muted);
+      margin-top: 8px;
+    }
+
+    .picks-loading,
+    .picks-empty {
+      grid-column: 1/-1;
+      text-align: center;
+      padding: 40px;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-right: 8px;
+      vertical-align: middle;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    /* ── Match Selector ─────────────────────────────────── */
+    .selector-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr auto;
+      gap: 14px;
+      align-items: end;
+    }
+
+    label {
+      display: block;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 6px;
+    }
+
+    select {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 0.87rem;
+      font-family: 'Inter', sans-serif;
+      outline: none;
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='7'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2364748b' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      transition: border-color 0.2s;
+    }
+
+    select:focus {
+      border-color: var(--accent);
+    }
+
+    select:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .calc-btn {
+      background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+      border: none;
+      color: #fff;
+      font-family: 'Inter', sans-serif;
+      font-weight: 700;
+      font-size: 0.87rem;
+      padding: 11px 28px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+      letter-spacing: 0.3px;
+    }
+
+    .calc-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 20px rgba(59, 130, 246, 0.35);
+    }
+
+    .calc-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* Odds inputs row */
+    .odds-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    input[type="number"] {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 0.87rem;
+      font-family: 'Inter', sans-serif;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    input[type="number"]:focus {
+      border-color: var(--accent);
+    }
+
+    /* ── Results Grid ───────────────────────────────────── */
+    #results {
+      display: none;
+    }
+
+    .results-title {
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .results-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+
+    @media (max-width: 900px) {
+      .results-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .selector-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    /* ── 1X2 Gauge ──────────────────────────────────────── */
+    .gauge-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      text-align: center;
+      transition: all 0.3s;
+    }
+
+    .gauge-card:hover {
+      border-color: var(--accent);
+    }
+
+    .gauge-label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--muted);
+      margin-bottom: 14px;
+    }
+
+    .gauge-svg {
+      width: 120px;
+      height: 70px;
+      overflow: visible;
+    }
+
+    .gauge-arc-bg {
+      fill: none;
+      stroke: rgba(255, 255, 255, 0.06);
+      stroke-width: 10;
+    }
+
+    .gauge-arc {
+      fill: none;
+      stroke-width: 10;
+      stroke-linecap: round;
+      transition: stroke-dasharray 1s ease;
+    }
+
+    .gauge-pct {
+      font-size: 1.8rem;
+      font-weight: 800;
+      margin-top: 8px;
+      background: linear-gradient(135deg, #fff, #94a3b8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .gauge-compare {
+      font-size: 0.7rem;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    .gauge-compare .up {
+      color: #10b981;
+    }
+
+    .gauge-compare .down {
+      color: #ef4444;
+    }
+
+    /* ── Over/Under Tables ──────────────────────────────── */
+    .ou-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    .ou-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .ou-table th {
+      font-size: 0.68rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--muted);
+      padding: 8px 12px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .ou-table td {
+      padding: 10px 12px;
+      font-size: 0.85rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    }
+
+    .ou-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .ou-table tr:hover td {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .ou-market-label {
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .ou-prob {
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .ou-prob.high {
+      color: #10b981;
+    }
+
+    .ou-prob.med {
+      color: var(--yellow);
+    }
+
+    .ou-prob.low {
+      color: var(--accent);
+    }
+
+    .ou-bar-cell {
+      width: 120px;
+    }
+
+    .mini-bar {
+      height: 5px;
+      background: rgba(255, 255, 255, 0.06);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .mini-bar-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.8s ease;
+    }
+
+    /* ── Goal Heatmap ───────────────────────────────────── */
+    .heatmap-wrap {
+      overflow-x: auto;
+    }
+
+    #heatmap-table {
+      border-collapse: separate;
+      border-spacing: 3px;
+      margin: 0 auto;
+    }
+
+    .hm-header {
+      font-size: 0.65rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-align: center;
+      padding: 4px 8px;
+    }
+
+    .hm-cell {
+      width: 54px;
+      height: 48px;
+      border-radius: 8px;
+      text-align: center;
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: rgba(255, 255, 255, 0.9);
+      cursor: default;
+      transition: transform 0.15s, opacity 0.15s;
+      position: relative;
+    }
+
+    .hm-cell:hover {
+      transform: scale(1.08);
+      z-index: 10;
+    }
+
+    .hm-row-label {
+      font-size: 0.65rem;
+      color: var(--muted);
+      font-weight: 600;
+      text-align: right;
+      padding-right: 8px;
+    }
+
+    /* ── Value Bets in Result ───────────────────────────── */
+    #result-picks {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 10px;
+    }
+
+    /* ── Source badge ───────────────────────────────────── */
+    .source-tag {
+      font-size: 0.65rem;
+      background: rgba(59, 130, 246, 0.12);
+      border: 1px solid rgba(59, 130, 246, 0.2);
+      color: var(--accent);
+      padding: 3px 9px;
+      border-radius: 20px;
+      margin-left: 10px;
+    }
+
+    /* ── Tooltip ────────────────────────────────────────── */
+    #tooltip {
+      position: fixed;
+      background: #1e2d42;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 0.75rem;
+      pointer-events: none;
+      z-index: 1000;
+      display: none;
+      white-space: nowrap;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    }
+
+    /* ── Misc ───────────────────────────────────────────── */
+    .note-banner {
+      background: rgba(245, 158, 11, 0.08);
+      border: 1px solid rgba(245, 158, 11, 0.2);
+      border-radius: 8px;
+      padding: 10px 16px;
+      font-size: 0.78rem;
+      color: var(--yellow);
+      margin-bottom: 16px;
+      display: none;
+    }
+
+    .lambda-row {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+
+    .lambda-chip {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 14px;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+
+    .lambda-chip strong {
+      color: var(--text);
+    }
+
+    /* ── Ticker & Parlays ───────────────────────────────── */
+    .ticker-wrap {
+      width: 100vw;
+      margin-left: calc(-50vw + 50%);
+      overflow: hidden;
+      background: linear-gradient(90deg, #091321, #132440, #091321);
+      padding: 14px 0;
+      border-top: 2px solid var(--accent);
+      border-bottom: 2px solid var(--accent);
+      position: relative;
+      margin-bottom: 30px;
+    }
+
+    .ticker {
+      display: flex;
+      width: max-content;
+      animation: scroll 45s linear infinite;
+    }
+
+    .ticker:hover {
+      animation-play-state: paused;
+    }
+
+    @keyframes scroll {
+      0% {
+        transform: translate3d(0, 0, 0);
+      }
+
+      100% {
+        transform: translate3d(-50%, 0, 0);
+      }
+    }
+
+    .ticker-item {
+      flex: 0 0 auto;
+      padding: 0 24px;
+      border-right: 1px solid rgba(255, 255, 255, 0.08);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      min-width: 280px;
+    }
+
+    .t-title {
+      font-size: 0.7rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      font-weight: 800;
+      margin-bottom: 6px;
+      letter-spacing: 1px;
+    }
+
+    .t-match {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 4px;
+    }
+
+    .t-market {
+      font-size: 0.8rem;
+      color: #cbd5e1;
+    }
+
+    .t-edge {
+      font-size: 0.95rem;
+      font-weight: 800;
+      color: #10b981;
+      margin-top: 4px;
+    }
+
+    .parlay-item {
+      background: rgba(16, 185, 129, 0.05);
+    }
+
+    .parlay-item .t-title {
+      color: #10b981;
+    }
+  </style>
+</head>
+
+<body>
+
+  <header>
+    <div>
+      <div class="logo">⚽ BetIQ</div>
+      <div class="logo-sub">Motor de probabilidades Dixon-Coles + ML</div>
+    </div>
+    <a href="results.html"
+       style="margin-left:auto; margin-right:12px; color:var(--muted); text-decoration:none; font-size:0.85rem; font-weight:600; padding:6px 14px; border-radius:8px; border:1px solid var(--border); transition:all 0.2s;"
+       onmouseover="this.style.color='#e2e8f0';this.style.borderColor='rgba(99,179,237,0.3)'"
+       onmouseout="this.style.color='#64748b';this.style.borderColor='rgba(99,179,237,0.12)'">
+       Análisis de Resultados
+    </a>
+    <div id="api-badge" class="header-badge" style="display:none">🟢 LIVE – The Odds API</div>
+  </header>
+
+  <div id="tooltip"></div>
+
+  <main>
+    <div id="ticker-container"></div>
+
+    <!-- ══════════════════════════════════════════════════════
+       SECTION 1 — VALUE PICKS (multi-liga)
+  ═══════════════════════════════════════════════════════ -->
+    <section id="section-picks-wrap">
+      <div id="section-title-picks" class="section-title">
+        🔥 Value Picks — Apuestas con Edge Positivo (Todas las Ligas)
+        <span id="picks-source" class="source-tag" style="display:none"></span>
+      </div>
+      <div id="note-banner" class="note-banner">
+        ⚠️ Modo demo: configura la variable <code>ODDS_API_KEY</code> en el backend para obtener partidos reales y
+        cuotas actuales.
+      </div>
+      <div id="picks-container">
+        <div class="picks-loading"><span class="spinner"></span> Cargando picks en tiempo real...</div>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════════
+       SECTION 2 — MATCH ANALYZER
+  ═══════════════════════════════════════════════════════ -->
+    <section>
+      <div class="section-title">🔎 Analizar Partido Específico</div>
+      <div class="card">
+        <div class="selector-grid">
+          <div>
+            <label for="sel-league">Liga</label>
+            <select id="sel-league" onchange="onLeagueChange()">
+              <option value="">Selecciona una liga...</option>
+            </select>
+          </div>
+          <div>
+            <label for="sel-home">Equipo Local</label>
+            <select id="sel-home" disabled>
+              <option value="">Primero selecciona la liga</option>
+            </select>
+          </div>
+          <div>
+            <label for="sel-away">Equipo Visitante</label>
+            <select id="sel-away" disabled>
+              <option value="">Primero selecciona la liga</option>
+            </select>
+          </div>
+          <div>
+            <label style="opacity:0">.</label>
+            <button class="calc-btn" onclick="runPredict()" id="calc-btn" disabled>Calcular</button>
+          </div>
+        </div>
+
+        <!-- Optional market odds -->
+        <div style="margin-top:14px;">
+          <label style="margin-bottom:6px;">
+            Cuotas del mercado (opcional — mejora la comparación de edge)
+          </label>
+          <div class="odds-row">
+            <div>
+              <label for="odds-home">1 (Local)</label>
+              <input type="number" id="odds-home" placeholder="ej. 2.10" step="0.01" min="1" />
+            </div>
+            <div>
+              <label for="odds-draw">X (Empate)</label>
+              <input type="number" id="odds-draw" placeholder="ej. 3.40" step="0.01" min="1" />
+            </div>
+            <div>
+              <label for="odds-away">2 (Visitante)</label>
+              <input type="number" id="odds-away" placeholder="ej. 3.80" step="0.01" min="1" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════════
+       SECTION 3 — RESULTS
+  ═══════════════════════════════════════════════════════ -->
+    <section id="results">
+      <div class="results-title">
+        <span>📊</span>
+        <span id="results-match-title">Resultado</span>
+      </div>
+
+      <!-- Lambda row -->
+      <div class="lambda-row">
+        <div class="lambda-chip">λ Local: <strong id="lam-home">—</strong></div>
+        <div class="lambda-chip">λ Visitante: <strong id="lam-away">—</strong></div>
+        <div class="lambda-chip">Goles esperados: <strong id="expected-goals">—</strong></div>
+      </div>
+
+      <!-- 1X2 Gauges -->
+      <div class="results-grid" style="margin-bottom:20px;">
+        <div class="gauge-card" id="gauge-home">
+          <div class="gauge-label" id="g-home-name">Local</div>
+          <svg class="gauge-svg" viewBox="0 0 120 70">
+            <path class="gauge-arc-bg" d="M10,65 A55,55,0,0,1,110,65" />
+            <path class="gauge-arc" id="arc-home" stroke="#3b82f6" d="M10,65 A55,55,0,0,1,110,65"
+              stroke-dasharray="0 173" />
+          </svg>
+          <div class="gauge-pct" id="pct-home">—%</div>
+          <div class="gauge-compare" id="cmp-home"></div>
+        </div>
+        <div class="gauge-card" id="gauge-draw">
+          <div class="gauge-label">Empate</div>
+          <svg class="gauge-svg" viewBox="0 0 120 70">
+            <path class="gauge-arc-bg" d="M10,65 A55,55,0,0,1,110,65" />
+            <path class="gauge-arc" id="arc-draw" stroke="#f59e0b" d="M10,65 A55,55,0,0,1,110,65"
+              stroke-dasharray="0 173" />
+          </svg>
+          <div class="gauge-pct" id="pct-draw">—%</div>
+          <div class="gauge-compare" id="cmp-draw"></div>
+        </div>
+        <div class="gauge-card" id="gauge-away">
+          <div class="gauge-label" id="g-away-name">Visitante</div>
+          <svg class="gauge-svg" viewBox="0 0 120 70">
+            <path class="gauge-arc-bg" d="M10,65 A55,55,0,0,1,110,65" />
+            <path class="gauge-arc" id="arc-away" stroke="#10b981" d="M10,65 A55,55,0,0,1,110,65"
+              stroke-dasharray="0 173" />
+          </svg>
+          <div class="gauge-pct" id="pct-away">—%</div>
+          <div class="gauge-compare" id="cmp-away"></div>
+        </div>
+      </div>
+
+      <!-- Over/Under Tables -->
+      <div class="ou-grid" style="margin-bottom:20px;">
+        <div class="card">
+          <div class="section-title" style="margin-bottom:12px;">Over / Under — Tiempo Completo</div>
+          <table class="ou-table" id="ou-ft-table">
+            <thead>
+              <tr>
+                <th>Mercado</th>
+                <th>Over</th>
+                <th>Under</th>
+                <th class="ou-bar-cell">Prob Over</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="card">
+          <div class="section-title" style="margin-bottom:12px;">Over / Under — Medio Tiempo</div>
+          <table class="ou-table" id="ou-ht-table">
+            <thead>
+              <tr>
+                <th>Mercado</th>
+                <th>Over</th>
+                <th>Under</th>
+                <th class="ou-bar-cell">Prob Over</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Goal Heatmap -->
+      <div class="card" style="margin-bottom:20px;">
+        <div class="section-title" style="margin-bottom:16px;">🌡️ Mapa de Calor de Goles — P(Goles Local = i, Goles
+          Visitante = j)</div>
+        <div class="heatmap-wrap">
+          <table id="heatmap-table"></table>
+        </div>
+        <div style="font-size:0.68rem;color:var(--muted);margin-top:12px;text-align:center;">
+          Eje X = Goles Visitante &nbsp;|&nbsp; Eje Y = Goles Local &nbsp;|&nbsp; Pasa el cursor para ver probabilidad
+          exacta
+        </div>
+      </div>
+
+      <!-- Value Bets for this match -->
+      <div class="card">
+        <div class="section-title" style="margin-bottom:14px;">💎 Value Bets en este Partido</div>
+        <div id="result-picks"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    const API = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+      ? 'http://localhost:8000'
+      : window.location.origin;
+
+    // ── Fetch & Bootstrap ─────────────────────────────────────────────────────────
+    window.addEventListener('DOMContentLoaded', async () => {
+      await loadLeagues();
+      await loadValuePicks();
+    });
+
+    async function loadLeagues() {
+      try {
+        const resp = await fetch(`${API}/leagues`);
+        const leagues = await resp.json();
+        const sel = document.getElementById('sel-league');
+        leagues.forEach(l => {
+          const opt = document.createElement('option');
+          opt.value = l.id;
+          opt.textContent = `${l.name} (${l.country})`;
+          sel.appendChild(opt);
+        });
+      } catch (e) {
+        console.error('No se pudo conectar al backend:', e);
+      }
+    }
+
+    async function onLeagueChange() {
+      const leagueId = document.getElementById('sel-league').value;
+      const homeSel = document.getElementById('sel-home');
+      const awaySel = document.getElementById('sel-away');
+      const btn = document.getElementById('calc-btn');
+
+      homeSel.innerHTML = '<option>Cargando...</option>';
+      awaySel.innerHTML = '<option>Cargando...</option>';
+      homeSel.disabled = awaySel.disabled = btn.disabled = true;
+
+      if (!leagueId) return;
+      const resp = await fetch(`${API}/teams/${leagueId}`);
+      const data = await resp.json();
+      homeSel.innerHTML = '<option value="">Selecciona equipo local...</option>';
+      awaySel.innerHTML = '<option value="">Selecciona equipo visitante...</option>';
+      data.teams.forEach(t => {
+        homeSel.appendChild(new Option(t, t));
+        awaySel.appendChild(new Option(t, t));
+      });
+      homeSel.disabled = awaySel.disabled = false;
+      homeSel.onchange = awaySel.onchange = checkReady;
+    }
+
+    function checkReady() {
+      const ready = document.getElementById('sel-home').value &&
+        document.getElementById('sel-away').value;
+      document.getElementById('calc-btn').disabled = !ready;
+    }
+
+    // ── API Odds  ─────────────────────────────────────────────────────────────────
+    async function runPredict() {
+      const league_id = document.getElementById('sel-league').value;
+      const home_team = document.getElementById('sel-home').value;
+      const away_team = document.getElementById('sel-away').value;
+      const home_odds = parseFloat(document.getElementById('odds-home').value) || null;
+      const draw_odds = parseFloat(document.getElementById('odds-draw').value) || null;
+      const away_odds = parseFloat(document.getElementById('odds-away').value) || null;
+
+      document.getElementById('calc-btn').textContent = 'Calculando...';
+      document.getElementById('calc-btn').disabled = true;
+
+      try {
+        const resp = await fetch(`${API}/predict`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ league_id, home_team, away_team, home_odds, draw_odds, away_odds }),
+        });
+        if (!resp.ok) { alert('Error del servidor'); return; }
+        const data = await resp.json();
+        renderResults(data, home_team, away_team);
+      } catch (e) {
+        alert('No se pudo conectar al backend. Asegúrate de que uvicorn esté corriendo.');
+      } finally {
+        document.getElementById('calc-btn').textContent = 'Calcular';
+        document.getElementById('calc-btn').disabled = false;
+      }
+    }
+
+    // ── Render Results ────────────────────────────────────────────────────────────
+    function renderResults(data, homeTeam, awayTeam) {
+      document.getElementById('results').style.display = 'block';
+      document.getElementById('results-match-title').textContent =
+        `${homeTeam} vs ${awayTeam}`;
+      document.getElementById('g-home-name').textContent = homeTeam;
+      document.getElementById('g-away-name').textContent = awayTeam;
+
+      // Lambda
+      document.getElementById('lam-home').textContent = data.lambda_home;
+      document.getElementById('lam-away').textContent = data.lambda_away;
+      document.getElementById('expected-goals').textContent =
+        (data.lambda_home + data.lambda_away).toFixed(2);
+
+      // 1X2 Gauges
+      const ARC_LEN = 173;
+      function setGauge(id, arcId, prob, mktProb) {
+        document.getElementById(id).textContent = (prob * 100).toFixed(1) + '%';
+        const fill = (prob * ARC_LEN).toFixed(1);
+        document.getElementById(arcId).setAttribute('stroke-dasharray', `${fill} ${ARC_LEN}`);
+        const edge = ((prob - mktProb) * 100).toFixed(1);
+        const cmpEl = document.getElementById(id.replace('pct', 'cmp'));
+        if (cmpEl) {
+          const cls = edge > 0 ? 'up' : 'down';
+          cmpEl.innerHTML = `Mercado: ${(mktProb * 100).toFixed(1)}% — Edge: <span class="${cls}">${edge > 0 ? '+' : ''}${edge}%</span>`;
+        }
+      }
+      const mi = data.market_implied;
+      setGauge('pct-home', 'arc-home', data.probs_1x2.home, mi.home);
+      setGauge('pct-draw', 'arc-draw', data.probs_1x2.draw, mi.draw);
+      setGauge('pct-away', 'arc-away', data.probs_1x2.away, mi.away);
+
+      // O/U Full Time
+      const ftBody = document.querySelector('#ou-ft-table tbody');
+      ftBody.innerHTML = '';
+      Object.values(data.ou_markets).forEach(m => {
+        ftBody.innerHTML += ouRow(m);
+      });
+
+      // O/U Half Time
+      const htBody = document.querySelector('#ou-ht-table tbody');
+      htBody.innerHTML = '';
+      Object.values(data.ht_markets).forEach(m => {
+        htBody.innerHTML += ouRow(m);
+      });
+
+      // Heatmap
+      renderHeatmap(data.heatmap, homeTeam, awayTeam);
+
+      // Value bets
+      renderMatchPicks(data.value_bets);
+
+      // Scroll to results
+      document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function ouRow(m) {
+      const overPct = (m.over * 100).toFixed(1);
+      const underPct = (m.under * 100).toFixed(1);
+      const cls = m.over > 0.6 ? 'high' : m.over > 0.4 ? 'med' : 'low';
+      const barColor = m.over > 0.6 ? '#10b981' : m.over > 0.4 ? '#f59e0b' : '#3b82f6';
+      return `
+    <tr>
+      <td class="ou-market-label">${m.label}</td>
+      <td class="ou-prob ${cls}">${overPct}%</td>
+      <td class="ou-prob">${underPct}%</td>
+      <td class="ou-bar-cell">
+        <div class="mini-bar">
+          <div class="mini-bar-fill" style="width:${overPct}%;background:${barColor}"></div>
+        </div>
+      </td>
+    </tr>`;
+    }
+
+    function renderHeatmap(matrix, homeTeam, awayTeam) {
+      const table = document.getElementById('heatmap-table');
+      const maxGoals = matrix.length - 1;
+      const allVals = matrix.flat();
+      const maxVal = Math.max(...allVals);
+
+      let html = '<thead><tr><th class="hm-header" style="text-align:right;padding-right:10px;">↓ Local \\ Visitante →</th>';
+      for (let j = 0; j <= maxGoals; j++) {
+        html += `<th class="hm-header">${j}</th>`;
+      }
+      html += '</tr></thead><tbody>';
+
+      for (let i = 0; i <= maxGoals; i++) {
+        html += `<tr><td class="hm-row-label">${i}</td>`;
+        for (let j = 0; j <= maxGoals; j++) {
+          const val = matrix[i][j];
+          const intensity = maxVal > 0 ? val / maxVal : 0;
+          const color = heatColor(intensity);
+          const textColor = intensity > 0.5 ? 'rgba(0,0,0,0.85)' : 'rgba(255,255,255,0.85)';
+          html += `<td class="hm-cell" style="background:${color};color:${textColor};"
+        onmouseenter="showTip(event,'${i}-${j}',${val})"
+        onmouseleave="hideTip()">${val.toFixed(1)}%</td>`;
+        }
+        html += '</tr>';
+      }
+      html += '</tbody>';
+      table.innerHTML = html;
+    }
+
+    function heatColor(t) {
+      // blue(cold) → teal → gold → red(hot)
+      if (t < 0.33) { const f = t / 0.33; return `rgb(${lerp(30, 16, f)},${lerp(64, 185, f)},${lerp(175, 129, f)})`; }
+      if (t < 0.66) { const f = (t - 0.33) / 0.33; return `rgb(${lerp(16, 245, f)},${lerp(185, 158, f)},${lerp(129, 11, f)})`; }
+      const f = (t - 0.66) / 0.34; return `rgb(${lerp(245, 239, f)},${lerp(158, 68, f)},${lerp(11, 68, f)})`;
+    }
+    function lerp(a, b, t) { return Math.round(a + (b - a) * t); }
+
+    function showTip(e, cell, val) {
+      const [i, j] = cell.split('-');
+      const tip = document.getElementById('tooltip');
+      tip.style.display = 'block';
+      tip.innerHTML = `${i}-${j} &nbsp;<strong>${val.toFixed(2)}%</strong>`;
+      tip.style.left = (e.clientX + 12) + 'px';
+      tip.style.top = (e.clientY - 30) + 'px';
+    }
+    function hideTip() { document.getElementById('tooltip').style.display = 'none'; }
+
+    function renderMatchPicks(bets) {
+      const el = document.getElementById('result-picks');
+      if (!bets || bets.length === 0) {
+        el.innerHTML = '<p style="color:var(--muted);font-size:0.85rem;">No se encontraron apuestas con edge positivo en este partido.</p>';
+        return;
+      }
+      el.innerHTML = bets.map(b => pickCard(b)).join('');
+    }
+
+    // ── Value Picks (global / multi-liga) ────────────────────────────────────────
+    async function loadValuePicks() {
+      const container = document.getElementById('picks-container');
+      try {
+        const resp = await fetch(`${API}/value-picks?min_edge=2`);
+        const data = await resp.json();
+
+        // Show source
+        const srcTag = document.getElementById('picks-source');
+        srcTag.textContent = data.source;
+        srcTag.style.display = 'inline';
+
+        // Show demo banner if needed
+        if (data.source.includes('demo') || data.source.includes('Estático')) {
+          document.getElementById('note-banner').style.display = 'block';
+        }
+
+        // Show API badge
+        if (data.source.includes('real') || data.source.includes('Odds API')) {
+          document.getElementById('api-badge').style.display = 'flex';
+        }
+
+        if (!data.picks || data.picks.length === 0) {
+          container.innerHTML = '<div class="picks-empty">No se encontraron value bets con edge ≥ 2% en la jornada actual.</div>';
+          document.getElementById('ticker-container').style.display = 'none';
+          return;
+        }
+
+        // Ocultar tarjetas estáticas y título para conservar un diseño más limpio
+        container.style.display = 'none';
+        document.getElementById('section-title-picks').style.display = 'none';
+
+        renderTicker(data.picks);
+      } catch (e) {
+        container.innerHTML = '<div class="picks-empty">⚠️ No se pudo conectar al backend. Asegúrate de que uvicorn esté corriendo en el puerto 8001.</div>';
+      }
+    }
+
+    function buildParlays(picks, maxCombos = 10) {
+      if (!picks) return [];
+      // Filtrar picks 'seguros' (probabilidad del modelo > 45%)
+      const safe = picks.filter(p => p.model_prob > 45);
+      if (safe.length < 2) return [];
+
+      const parlays = [];
+      // Generar combinaciones de 2 legs (simulación simple de itertools.combinations)
+      for (let i = 0; i < Math.min(safe.length, 8); i++) {
+        for (let j = i + 1; j < Math.min(safe.length, 8); j++) {
+          const combo = [safe[i], safe[j]];
+          // Si son el mismo partido, se saltan (no suele ser válido combinar misma linea de mismo juego)
+          if (combo[0].home_team === combo[1].home_team) continue;
+
+          const combOdds = combo[0].implied_odds * combo[1].implied_odds;
+          const edge1 = combo[0].edge / 100;
+          const edge2 = combo[1].edge / 100;
+          const edgeMult = ((1 + edge1) * (1 + edge2) - 1) * 100;
+
+          if (combOdds > 1.5) {
+            parlays.push({
+              type: "2-Leg Parlay",
+              legs: combo.map(c => `${c.home_team} (${c.selection})`),
+              edge: parseFloat(edgeMult.toFixed(1)),
+              odds: parseFloat(combOdds.toFixed(2))
+            });
+          }
+        }
+      }
+      return parlays.sort((a, b) => b.edge - a.edge).slice(0, maxCombos);
+    }
+
+    function renderTicker(picks) {
+      if (!picks || picks.length === 0) return;
+
+      const parlays = buildParlays(picks);
+      let html = '<div class="ticker-wrap"><div class="ticker">';
+      let innerHtml = '';
+
+      // Singles
+      picks.slice(0, 8).forEach(p => {
+        innerHtml += `
+        <div class="ticker-item">
+            <div class="t-title">🔥 SINGLE VALUE HIT</div>
+            <div class="t-match">${p.home_team} v ${p.away_team}</div>
+            <div class="t-market">${p.market} - ${p.selection} @ ${p.implied_odds}</div>
+            <div class="t-edge">+${p.edge}% EDGE</div>
+        </div>`;
+      });
+
+      // Parlays
+      parlays.slice(0, 5).forEach(p => {
+        const legsHtml = p.legs.join('<br>+ ');
+        innerHtml += `
+        <div class="ticker-item parlay-item">
+            <div class="t-title">💰 ${p.type.toUpperCase()}</div>
+            <div class="t-market" style="font-size:0.75rem; line-height:1.2;">+ ${legsHtml}</div>
+            <div class="t-edge">+${p.edge}% EDGE | Cuota ${p.odds}</div>
+        </div>`;
+      });
+
+      html += innerHtml + innerHtml + '</div></div>';
+      document.getElementById('ticker-container').innerHTML = html;
+    }
+
+    function pickCard(b, showMatchInfo = false) {
+      const edgeCls = b.edge >= 5 ? '' : b.edge >= 3 ? 'medium' : 'low';
+      const barW = Math.min(b.model_prob, 100).toFixed(0);
+      const matchLine = showMatchInfo
+        ? `<div class="pick-match">${b.home_team} <span>vs</span> ${b.away_team}</div>
+           <div class="pick-league">${b.league}</div>`
+        : '';
+      const dateLine = b.date
+        ? `<div class="pick-date">📅 ${b.date} ${b.time ? '· ' + b.time + ' UTC' : ''}</div>` : '';
+      const noteLine = b.note
+        ? `<div style="font-size:0.63rem;color:var(--muted);margin-top:6px;">${b.note}</div>` : '';
+
+      return `
+  <div class="pick-card">
+    ${matchLine}
+    <div class="pick-market">Mercado: <strong>${b.market}</strong> — ${b.selection}</div>
+    <div class="pick-stats">
+      <span class="edge-badge ${edgeCls}">+${b.edge}% Edge</span>
+      <span class="prob-text">Modelo: ${b.model_prob}% | Mdo: ${b.market_prob}%</span>
+    </div>
+    <div class="pick-bar">
+      <div class="pick-bar-fill" style="width:${barW}%"></div>
+    </div>
+    ${dateLine}
+    ${noteLine}
+  </div>`;
+    }
+  </script>
+</body>
+
+</html>

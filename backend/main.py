@@ -34,6 +34,7 @@ def load_league_data() -> dict:
         with open(PARAMS_FILE, encoding="utf-8") as f:
             calibrated = json.load(f)
         merged = {}
+        # Merge hardcoded + calibrated (calibrated wins)
         for league_id, hc in LEAGUES_HARDCODED.items():
             if league_id in calibrated:
                 cal = calibrated[league_id]
@@ -47,6 +48,20 @@ def load_league_data() -> dict:
                 }
             else:
                 merged[league_id] = {**hc, "_source": "hardcoded"}
+        # Add any league in calibrated but not in hardcoded (API-Football discovered)
+        for league_id, cal in calibrated.items():
+            if league_id not in merged:
+                merged[league_id] = {
+                    "name": cal["name"],
+                    "country": cal["country"],
+                    "home_adv": cal["home_adv"],
+                    "market_margin": cal.get("market_margin", 0.05),
+                    "avg_goals": 2.5,
+                    "teams": cal["teams"],
+                    "_source": "calibrado",
+                    "_updated_at": cal.get("updated_at", ""),
+                    "_num_matches": cal.get("num_matches", 0),
+                }
         return merged
     return {k: {**v, "_source": "hardcoded"} for k, v in LEAGUES_HARDCODED.items()}
 

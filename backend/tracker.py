@@ -9,9 +9,11 @@ import api_client
 
 
 def update_results_from_api():
-    """Fetch recent results from The Odds API and save to database."""
-    all_results = api_client.get_recent_results()
+    """Fetch recent results from The Odds API + API-Football and save to database."""
     saved = 0
+
+    # Source 1: The Odds API (covers leagues with ODDS_API_KEY)
+    all_results = api_client.get_recent_results()
     for league_id, events in all_results.items():
         for event in events:
             if not event.get("completed"):
@@ -32,6 +34,27 @@ def update_results_from_api():
                 db.save_result(league_id, home_team, away_team,
                                date_str, home_score, away_score)
                 saved += 1
+
+    # Source 2: API-Football (covers leagues not in The Odds API or as supplement)
+    if api_client.API_FOOTBALL_KEY:
+        apifb_results = api_client.get_recent_results_apifb()
+        for league_id, fixtures in apifb_results.items():
+            for fix in fixtures:
+                goals = fix.get("goals", {})
+                teams = fix.get("teams", {})
+                fixture_info = fix.get("fixture", {})
+                hg = goals.get("home")
+                ag = goals.get("away")
+                if hg is None or ag is None:
+                    continue
+                home_team = teams.get("home", {}).get("name", "")
+                away_team = teams.get("away", {}).get("name", "")
+                date_str = fixture_info.get("date", "")[:10]
+                if home_team and away_team:
+                    db.save_result(league_id, home_team, away_team,
+                                   date_str, int(hg), int(ag))
+                    saved += 1
+
     return saved
 
 

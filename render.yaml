@@ -2,10 +2,12 @@ services:
   - type: web
     name: betiq
     runtime: python
-    buildCommand: pip install -r backend/requirements.txt
+    buildCommand: pip install -r requirements.txt
     startCommand: cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: ODDS_API_KEY
+        sync: false  # Set manually in Render dashboard
+      - key: API_FOOTBALL_KEY
         sync: false  # Set manually in Render dashboard
       - key: PYTHONIOENCODING
         value: utf-8

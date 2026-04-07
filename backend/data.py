@@ -1,11 +1,17 @@
 """
-Team attack/defense parameters calibrated realistically for each league.
+Team attack/defense parameters — fallback/initial values for all leagues.
 Parameters are on log scale (Dixon-Coles convention).
-home_adv: log home advantage factor per league.
-market_margin: typical bookmaker overround (e.g. 0.05 = 5%).
+These are replaced by calibrated values from team_params.json when available.
+
+Leagues covered:
+  - Top 5 Europe: Premier League, La Liga, Serie A, Bundesliga, Ligue 1
+  - Extended Europe: Eredivisie, Liga Portugal, Super Lig (Turkey)
+  - Americas: Liga MX, MLS, Serie A Brazil, Primera Argentina
+  - Competitions: Champions League, Europa League
 """
 
 LEAGUES = {
+    # ─── Top 5 European Leagues ──────────────────────────────────────────────
     "premier_league": {
         "name": "Premier League",
         "country": "England",
@@ -30,9 +36,9 @@ LEAGUES = {
             "Everton":            {"attack": 0.18, "defense": -0.12},
             "Nottingham Forest":  {"attack": 0.20, "defense": -0.30},
             "Bournemouth":        {"attack": 0.25, "defense": -0.10},
-            "Luton":              {"attack": 0.10, "defense": -0.05},
-            "Burnley":            {"attack": 0.08, "defense": -0.03},
-            "Sheffield United":   {"attack": 0.05, "defense": -0.02},
+            "Leicester":          {"attack": 0.20, "defense": -0.15},
+            "Ipswich":            {"attack": 0.10, "defense": -0.05},
+            "Southampton":        {"attack": 0.08, "defense": -0.03},
         }
     },
     "la_liga": {
@@ -45,7 +51,7 @@ LEAGUES = {
             "Real Madrid":        {"attack": 0.85, "defense": -0.68},
             "Barcelona":          {"attack": 0.80, "defense": -0.55},
             "Atletico Madrid":    {"attack": 0.60, "defense": -0.70},
-            "Girona":             {"attack": 0.62, "defense": -0.45},
+            "Girona":             {"attack": 0.50, "defense": -0.35},
             "Athletic Bilbao":    {"attack": 0.42, "defense": -0.50},
             "Real Sociedad":      {"attack": 0.45, "defense": -0.42},
             "Real Betis":         {"attack": 0.40, "defense": -0.38},
@@ -57,11 +63,11 @@ LEAGUES = {
             "Las Palmas":         {"attack": 0.22, "defense": -0.18},
             "Getafe":             {"attack": 0.18, "defense": -0.42},
             "Deportivo Alaves":   {"attack": 0.15, "defense": -0.20},
-            "Cadiz":              {"attack": 0.12, "defense": -0.15},
             "Mallorca":           {"attack": 0.20, "defense": -0.35},
             "Rayo Vallecano":     {"attack": 0.22, "defense": -0.25},
-            "Granada":            {"attack": 0.10, "defense": -0.08},
-            "Almeria":            {"attack": 0.08, "defense": -0.05},
+            "Espanyol":           {"attack": 0.15, "defense": -0.18},
+            "Leganes":            {"attack": 0.10, "defense": -0.15},
+            "Real Valladolid":    {"attack": 0.08, "defense": -0.10},
         }
     },
     "serie_a": {
@@ -87,10 +93,10 @@ LEAGUES = {
             "Cagliari":           {"attack": 0.22, "defense": -0.18},
             "Genoa":              {"attack": 0.20, "defense": -0.20},
             "Lecce":              {"attack": 0.18, "defense": -0.15},
-            "Frosinone":          {"attack": 0.15, "defense": -0.12},
+            "Parma":              {"attack": 0.15, "defense": -0.12},
             "Empoli":             {"attack": 0.20, "defense": -0.18},
-            "Salernitana":        {"attack": 0.10, "defense": -0.08},
-            "Sassuolo":           {"attack": 0.25, "defense": -0.20},
+            "Como":               {"attack": 0.12, "defense": -0.10},
+            "Venezia":            {"attack": 0.10, "defense": -0.08},
         }
     },
     "bundesliga": {
@@ -108,16 +114,16 @@ LEAGUES = {
             "Eintracht Frankfurt":{"attack": 0.50, "defense": -0.35},
             "Freiburg":           {"attack": 0.42, "defense": -0.48},
             "Wolfsburg":          {"attack": 0.40, "defense": -0.38},
-            "Borussia Mönchengladbach":{"attack": 0.38, "defense": -0.30},
             "Werder Bremen":      {"attack": 0.35, "defense": -0.28},
             "Hoffenheim":         {"attack": 0.38, "defense": -0.32},
             "Heidenheim":         {"attack": 0.30, "defense": -0.35},
             "Augsburg":           {"attack": 0.25, "defense": -0.25},
-            "Union Berlin":       {"attack": 0.28, "defense": -0.30},  
-            "Bochum":             {"attack": 0.18, "defense": -0.15},
+            "Union Berlin":       {"attack": 0.28, "defense": -0.30},
             "Mainz":              {"attack": 0.32, "defense": -0.28},
-            "Köln":               {"attack": 0.22, "defense": -0.18},
-            "Darmstadt":          {"attack": 0.12, "defense": -0.10},
+            "St. Pauli":          {"attack": 0.15, "defense": -0.18},
+            "Bochum":             {"attack": 0.18, "defense": -0.15},
+            "Holstein Kiel":      {"attack": 0.12, "defense": -0.10},
+            "Monchengladbach":    {"attack": 0.35, "defense": -0.25},
         }
     },
     "ligue_1": {
@@ -142,13 +148,246 @@ LEAGUES = {
             "Nantes":             {"attack": 0.25, "defense": -0.28},
             "Montpellier":        {"attack": 0.22, "defense": -0.18},
             "Le Havre":           {"attack": 0.18, "defense": -0.20},
-            "Metz":               {"attack": 0.15, "defense": -0.12},
-            "Lorient":            {"attack": 0.18, "defense": -0.15},
-            "Clermont":           {"attack": 0.12, "defense": -0.10},
+            "Auxerre":            {"attack": 0.15, "defense": -0.15},
+            "Angers":             {"attack": 0.12, "defense": -0.12},
+            "Saint-Etienne":      {"attack": 0.10, "defense": -0.10},
         }
+    },
+
+    # ─── Extended European Leagues ───────────────────────────────────────────
+    "eredivisie": {
+        "name": "Eredivisie",
+        "country": "Netherlands",
+        "home_adv": 0.24,
+        "market_margin": 0.05,
+        "avg_goals": 3.0,
+        "teams": {
+            "PSV":                {"attack": 0.85, "defense": -0.55},
+            "Feyenoord":          {"attack": 0.70, "defense": -0.45},
+            "Ajax":               {"attack": 0.72, "defense": -0.40},
+            "AZ Alkmaar":         {"attack": 0.50, "defense": -0.35},
+            "FC Twente":          {"attack": 0.45, "defense": -0.38},
+            "FC Utrecht":         {"attack": 0.40, "defense": -0.30},
+            "Go Ahead Eagles":    {"attack": 0.30, "defense": -0.25},
+            "SC Heerenveen":      {"attack": 0.28, "defense": -0.22},
+            "NEC Nijmegen":       {"attack": 0.25, "defense": -0.28},
+            "Sparta Rotterdam":   {"attack": 0.22, "defense": -0.25},
+            "Fortuna Sittard":    {"attack": 0.20, "defense": -0.18},
+            "PEC Zwolle":         {"attack": 0.18, "defense": -0.20},
+            "Heracles Almelo":    {"attack": 0.15, "defense": -0.15},
+            "Willem II":          {"attack": 0.15, "defense": -0.15},
+            "NAC Breda":          {"attack": 0.12, "defense": -0.12},
+            "RKC Waalwijk":       {"attack": 0.10, "defense": -0.10},
+            "Almere City":        {"attack": 0.08, "defense": -0.08},
+            "FC Groningen":       {"attack": 0.10, "defense": -0.10},
+        }
+    },
+    "liga_portugal": {
+        "name": "Liga Portugal",
+        "country": "Portugal",
+        "home_adv": 0.26,
+        "market_margin": 0.05,
+        "avg_goals": 2.5,
+        "teams": {
+            "Sporting CP":        {"attack": 0.80, "defense": -0.55},
+            "Benfica":            {"attack": 0.78, "defense": -0.50},
+            "Porto":              {"attack": 0.75, "defense": -0.52},
+            "Braga":              {"attack": 0.50, "defense": -0.35},
+            "Vitoria Guimaraes":  {"attack": 0.35, "defense": -0.28},
+            "Santa Clara":        {"attack": 0.30, "defense": -0.25},
+            "Casa Pia":           {"attack": 0.22, "defense": -0.22},
+            "Famalicao":          {"attack": 0.25, "defense": -0.20},
+            "Moreirense":         {"attack": 0.20, "defense": -0.22},
+            "Rio Ave":            {"attack": 0.18, "defense": -0.20},
+            "Gil Vicente":        {"attack": 0.15, "defense": -0.18},
+            "Estoril":            {"attack": 0.18, "defense": -0.15},
+            "Arouca":             {"attack": 0.12, "defense": -0.15},
+            "Boavista":           {"attack": 0.15, "defense": -0.18},
+            "Nacional":           {"attack": 0.10, "defense": -0.12},
+            "Estrela Amadora":    {"attack": 0.10, "defense": -0.10},
+            "AVS":                {"attack": 0.08, "defense": -0.08},
+            "Farense":            {"attack": 0.08, "defense": -0.10},
+        }
+    },
+    "super_lig": {
+        "name": "Super Lig",
+        "country": "Turkey",
+        "home_adv": 0.30,
+        "market_margin": 0.05,
+        "avg_goals": 2.7,
+        "teams": {
+            "Galatasaray":        {"attack": 0.80, "defense": -0.50},
+            "Fenerbahce":         {"attack": 0.75, "defense": -0.48},
+            "Besiktas":           {"attack": 0.60, "defense": -0.35},
+            "Trabzonspor":        {"attack": 0.45, "defense": -0.30},
+            "Istanbul Basaksehir":{"attack": 0.35, "defense": -0.32},
+            "Antalyaspor":        {"attack": 0.28, "defense": -0.22},
+            "Sivasspor":          {"attack": 0.22, "defense": -0.25},
+            "Kasimpasa":          {"attack": 0.25, "defense": -0.18},
+            "Konyaspor":          {"attack": 0.20, "defense": -0.22},
+            "Alanyaspor":         {"attack": 0.22, "defense": -0.20},
+            "Rizespor":           {"attack": 0.18, "defense": -0.15},
+            "Kayserispor":        {"attack": 0.15, "defense": -0.15},
+            "Samsunspor":         {"attack": 0.20, "defense": -0.18},
+            "Hatayspor":          {"attack": 0.12, "defense": -0.12},
+            "Gaziantep FK":       {"attack": 0.15, "defense": -0.15},
+            "Adana Demirspor":    {"attack": 0.18, "defense": -0.15},
+            "Pendikspor":         {"attack": 0.10, "defense": -0.10},
+            "Karagumruk":         {"attack": 0.12, "defense": -0.10},
+        }
+    },
+
+    # ─── Americas ────────────────────────────────────────────────────────────
+    "liga_mx": {
+        "name": "Liga MX",
+        "country": "Mexico",
+        "home_adv": 0.35,
+        "market_margin": 0.05,
+        "avg_goals": 2.5,
+        "teams": {
+            "Club America":       {"attack": 0.72, "defense": -0.50},
+            "Monterrey":          {"attack": 0.60, "defense": -0.42},
+            "Cruz Azul":          {"attack": 0.65, "defense": -0.48},
+            "Guadalajara":        {"attack": 0.50, "defense": -0.35},
+            "Tigres UANL":        {"attack": 0.62, "defense": -0.45},
+            "Toluca":             {"attack": 0.48, "defense": -0.38},
+            "Pumas UNAM":         {"attack": 0.42, "defense": -0.30},
+            "Leon":               {"attack": 0.40, "defense": -0.32},
+            "Santos Laguna":      {"attack": 0.38, "defense": -0.28},
+            "Atlas":              {"attack": 0.35, "defense": -0.35},
+            "Pachuca":            {"attack": 0.45, "defense": -0.35},
+            "Necaxa":             {"attack": 0.28, "defense": -0.22},
+            "Puebla":             {"attack": 0.25, "defense": -0.25},
+            "Queretaro":          {"attack": 0.22, "defense": -0.18},
+            "FC Juarez":          {"attack": 0.20, "defense": -0.15},
+            "Mazatlan":           {"attack": 0.18, "defense": -0.15},
+            "Tijuana":            {"attack": 0.22, "defense": -0.20},
+            "San Luis":           {"attack": 0.25, "defense": -0.22},
+        }
+    },
+    "mls": {
+        "name": "MLS",
+        "country": "USA",
+        "home_adv": 0.28,
+        "market_margin": 0.05,
+        "avg_goals": 2.8,
+        "teams": {
+            "Inter Miami":        {"attack": 0.68, "defense": -0.35},
+            "Columbus Crew":      {"attack": 0.60, "defense": -0.45},
+            "FC Cincinnati":      {"attack": 0.55, "defense": -0.40},
+            "LAFC":               {"attack": 0.62, "defense": -0.38},
+            "LA Galaxy":          {"attack": 0.55, "defense": -0.30},
+            "New York Red Bulls":  {"attack": 0.45, "defense": -0.32},
+            "Seattle Sounders":   {"attack": 0.48, "defense": -0.35},
+            "Portland Timbers":   {"attack": 0.40, "defense": -0.28},
+            "Atlanta United":     {"attack": 0.35, "defense": -0.22},
+            "Philadelphia Union": {"attack": 0.42, "defense": -0.38},
+            "Nashville SC":       {"attack": 0.32, "defense": -0.30},
+            "Real Salt Lake":     {"attack": 0.38, "defense": -0.28},
+            "Minnesota United":   {"attack": 0.30, "defense": -0.25},
+            "Austin FC":          {"attack": 0.28, "defense": -0.22},
+            "Charlotte FC":       {"attack": 0.25, "defense": -0.20},
+            "St. Louis CITY":     {"attack": 0.30, "defense": -0.22},
+            "CF Montreal":        {"attack": 0.22, "defense": -0.18},
+            "Toronto FC":         {"attack": 0.25, "defense": -0.20},
+            "DC United":          {"attack": 0.20, "defense": -0.15},
+            "New York City FC":   {"attack": 0.42, "defense": -0.30},
+            "Orlando City":       {"attack": 0.35, "defense": -0.25},
+            "Houston Dynamo":     {"attack": 0.38, "defense": -0.28},
+            "Sporting KC":        {"attack": 0.25, "defense": -0.20},
+            "Colorado Rapids":    {"attack": 0.22, "defense": -0.18},
+            "Chicago Fire":       {"attack": 0.18, "defense": -0.15},
+            "Vancouver Whitecaps":{"attack": 0.25, "defense": -0.22},
+            "San Jose Earthquakes":{"attack": 0.15, "defense": -0.12},
+            "New England Revolution":{"attack": 0.28, "defense": -0.22},
+            "San Diego FC":       {"attack": 0.20, "defense": -0.18},
+        }
+    },
+    "serie_a_brazil": {
+        "name": "Serie A",
+        "country": "Brazil",
+        "home_adv": 0.35,
+        "market_margin": 0.05,
+        "avg_goals": 2.4,
+        "teams": {
+            "Palmeiras":          {"attack": 0.70, "defense": -0.50},
+            "Flamengo":           {"attack": 0.72, "defense": -0.42},
+            "Botafogo":           {"attack": 0.60, "defense": -0.40},
+            "Atletico Mineiro":   {"attack": 0.50, "defense": -0.35},
+            "Fluminense":         {"attack": 0.45, "defense": -0.38},
+            "Sao Paulo":          {"attack": 0.48, "defense": -0.35},
+            "Internacional":      {"attack": 0.45, "defense": -0.32},
+            "Gremio":             {"attack": 0.42, "defense": -0.30},
+            "Corinthians":        {"attack": 0.40, "defense": -0.28},
+            "Bahia":              {"attack": 0.35, "defense": -0.28},
+            "Fortaleza":          {"attack": 0.48, "defense": -0.35},
+            "Cruzeiro":           {"attack": 0.38, "defense": -0.30},
+            "Vasco da Gama":      {"attack": 0.30, "defense": -0.22},
+            "Athletico Paranaense":{"attack": 0.35, "defense": -0.28},
+            "Santos":             {"attack": 0.32, "defense": -0.25},
+            "Vitoria":            {"attack": 0.22, "defense": -0.18},
+            "Juventude":          {"attack": 0.18, "defense": -0.18},
+            "Ceara":              {"attack": 0.20, "defense": -0.20},
+            "Sport Recife":       {"attack": 0.18, "defense": -0.15},
+            "Mirassol":           {"attack": 0.15, "defense": -0.15},
+        }
+    },
+    "primera_argentina": {
+        "name": "Primera Division",
+        "country": "Argentina",
+        "home_adv": 0.38,
+        "market_margin": 0.05,
+        "avg_goals": 2.3,
+        "teams": {
+            "River Plate":        {"attack": 0.68, "defense": -0.48},
+            "Boca Juniors":       {"attack": 0.60, "defense": -0.42},
+            "Racing Club":        {"attack": 0.50, "defense": -0.35},
+            "Estudiantes":        {"attack": 0.42, "defense": -0.32},
+            "Velez Sarsfield":    {"attack": 0.38, "defense": -0.30},
+            "Talleres":           {"attack": 0.40, "defense": -0.28},
+            "San Lorenzo":        {"attack": 0.32, "defense": -0.22},
+            "Independiente":      {"attack": 0.35, "defense": -0.25},
+            "Lanus":              {"attack": 0.30, "defense": -0.25},
+            "Argentinos Juniors": {"attack": 0.28, "defense": -0.25},
+            "Belgrano":           {"attack": 0.25, "defense": -0.22},
+            "Godoy Cruz":         {"attack": 0.22, "defense": -0.20},
+            "Union Santa Fe":     {"attack": 0.20, "defense": -0.22},
+            "Huracan":            {"attack": 0.28, "defense": -0.22},
+            "Defensa y Justicia": {"attack": 0.25, "defense": -0.20},
+            "Central Cordoba":    {"attack": 0.15, "defense": -0.15},
+            "Rosario Central":    {"attack": 0.22, "defense": -0.18},
+            "Newells Old Boys":   {"attack": 0.20, "defense": -0.18},
+            "Banfield":           {"attack": 0.18, "defense": -0.18},
+            "Gimnasia La Plata":  {"attack": 0.15, "defense": -0.15},
+            "Platense":           {"attack": 0.15, "defense": -0.15},
+            "Tigre":              {"attack": 0.18, "defense": -0.15},
+            "Instituto":          {"attack": 0.18, "defense": -0.18},
+            "Sarmiento":          {"attack": 0.12, "defense": -0.12},
+            "Colon":              {"attack": 0.15, "defense": -0.15},
+            "Barracas Central":   {"attack": 0.10, "defense": -0.10},
+            "Riestra":            {"attack": 0.10, "defense": -0.08},
+            "Atletico Tucuman":   {"attack": 0.18, "defense": -0.18},
+        }
+    },
+
+    # ─── European Competitions ───────────────────────────────────────────────
+    "champions_league": {
+        "name": "Champions League",
+        "country": "Europe",
+        "home_adv": 0.18,
+        "market_margin": 0.05,
+        "avg_goals": 2.8,
+        "teams": {}
+    },
+    "europa_league": {
+        "name": "Europa League",
+        "country": "Europe",
+        "home_adv": 0.18,
+        "market_margin": 0.05,
+        "avg_goals": 2.6,
+        "teams": {}
     },
 }
 
-# Fixtures are now fetched in real-time from The Odds API.
-# No more hardcoded/invented matches.
+# Fixtures are fetched in real-time from The Odds API + API-Football.
 FIXTURES = {}
